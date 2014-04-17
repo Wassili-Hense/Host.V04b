@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Engine", "Engine\Engine.csproj", "{9B721291-AAB2-45F3-AE98-B62D0F5C8118}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Engine_UT", "Engine_UT\Engine_UT.csproj", "{B57AB286-2279-4CEE-AE55-8EF5CF5D4614}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9B721291-AAB2-45F3-AE98-B62D0F5C8118}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B721291-AAB2-45F3-AE98-B62D0F5C8118}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B721291-AAB2-45F3-AE98-B62D0F5C8118}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B721291-AAB2-45F3-AE98-B62D0F5C8118}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B57AB286-2279-4CEE-AE55-8EF5CF5D4614}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B57AB286-2279-4CEE-AE55-8EF5CF5D4614}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B57AB286-2279-4CEE-AE55-8EF5CF5D4614}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B57AB286-2279-4CEE-AE55-8EF5CF5D4614}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
