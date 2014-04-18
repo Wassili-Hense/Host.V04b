@@ -6,15 +6,17 @@ using System.Text;
 using System.Threading;
 
 namespace X13 {
-  public sealed class Topic : IComparable<Topic> {
+  public sealed class Topic: IComparable<Topic> {
     public static readonly Topic root;
-    private static SortedList<Topic, TopicCmd> _prIp;
-    private static SortedList<Topic, TopicCmd> _prOp;
+    private static Queue<TopicCmd> _prIp;
+    private static Queue<TopicCmd> _prTp;
+    private static SortedList<string, TopicCmd> _prOp;
     private static int _busyFlag;
 
     static Topic() {
-      _prIp=new SortedList<Topic, TopicCmd>();
-      _prOp=new SortedList<Topic, TopicCmd>();
+      _prIp=new Queue<TopicCmd>();
+      _prTp=new Queue<TopicCmd>();
+      _prOp=new SortedList<string, TopicCmd>();
       root=new Topic(null, "/");
       _busyFlag=1;
     }
@@ -23,42 +25,47 @@ namespace X13 {
         return;
       }
       lock(root) {
-        _prOp=Interlocked.Exchange(ref _prIp, _prOp);
+        _prTp=Interlocked.Exchange(ref _prIp, _prTp);
       }
-      foreach(var tv in _prOp) {
-        if(tv.Key._vt==VT.Ref && tv.Value.vt!=VT.Ref && tv.Value.vt!=VT.Null) {
-          var r=tv.Key.AsRef;
-          if(r!=null) {
-            r.SetValue(tv.Value);
-          }
-        } else {
-          tv.Key.SetValue(tv.Value);
+      TopicCmd c, c1;
+      while(_prTp.Count>0){
+        c=_prTp.Dequeue();
+        if(_prTp.Count==64){
+          _prTp.TrimExcess();
+        }
+        if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null ||  ((int)c.art<=(int)c1.art))) {
+          _prOp[c.src.path]=c;
         }
       }
+      
+      foreach(var cmd in _prOp.Values) {
+        cmd.src.SetValue(cmd);
+        //TODO: save for undo/redo
+        /*IHistory h;
+        if(cmd.prim!=null && cmd.prim._vt==VT.Object && (h=cmd.prim._o as IHistory)!=null) {
+          h.Add(cmd);
+        }*/
+      }
 
-      foreach(var tv in _prOp) {
-        if(tv.Value.art!=TopicCmd.Art.set) {
-          if(tv.Key._o!=null && tv.Key._disposed<1) {
+      foreach(var cmd in _prOp.Values) {
+        if(cmd.art!=TopicCmd.Art.set) {
+          if(cmd.src._o!=null && cmd.src._disposed<1) {
             ITenant tt;
             Topic r;
-            if(tv.Key._vt==VT.Ref && (r=tv.Key._o as Topic)!=null) {
+            if(cmd.src._vt==VT.Ref && (r=cmd.src._o as Topic)!=null) {
               //r.Subscribe("", RefChanged);
-            } else if(tv.Key._vt==VT.Object &&  (tt=tv.Key._o as ITenant)!=null) {
-              tt.owner=tv.Key;
+            } else if(cmd.src._vt==VT.Object &&  (tt=cmd.src._o as ITenant)!=null) {
+              tt.owner=cmd.src;
             }
           }
 
-          tv.Key.Publish(tv.Value, null);
-        }
-        if(tv.Key._disposed>0) {
-          ITenant tt;
-          if(tv.Key._vt==VT.Object &&  (tt=tv.Key._o as ITenant)!=null) {
-            tt.owner=null;
+          cmd.src.Publish(cmd, null);
+          if(cmd.src._disposed==1) {
+            if(cmd.src.parent!=null) {
+              cmd.src.parent._children.Remove(cmd.src.name);
+            }
+            cmd.src._disposed=2;
           }
-          if(tv.Key.parent!=null) {
-            tv.Key.parent._children.Remove(tv.Key.name);
-          }
-          tv.Key._disposed=2;
         }
       }
       _prOp.Clear();
@@ -105,6 +112,7 @@ namespace X13 {
     }
     public Bill all { get { return new Bill(this, true); } }
     public Bill children { get { return new Bill(this, false); } }
+    public bool disposed { get { return _disposed>0; } }
 
     /// <summary> Get item from tree</summary>
     /// <param name="path">relative or absolute path</param>
@@ -157,7 +165,7 @@ namespace X13 {
     public void Remove() {
       foreach(var t in this.all) {
         lock(root) {
-          _prIp[t]=new TopicCmd(TopicCmd.Art.remove);
+          _prIp.Enqueue(new TopicCmd(this, TopicCmd.Art.remove));
         }
       }
     }
@@ -175,83 +183,84 @@ namespace X13 {
     }
 
     public void Set(bool val, Topic prim=null) {
-      var c=new TopicCmd(val, prim);
       Topic r;
       if(_vt==VT.Ref && (r=_o as Topic)!=null) {
         r.Set(val, prim);
       } else {
+        var c=new TopicCmd(this, val, prim);
         lock(root) {
-          _prIp[this]=c;
+          _prIp.Enqueue(c);
         }
       }
     }
     public void Set(long val, Topic prim=null) {
-      var c=new TopicCmd(val, prim);
       Topic r;
       if(_vt==VT.Ref && (r=_o as Topic)!=null) {
         r.Set(val, prim);
       } else {
+        var c=new TopicCmd(this, val, prim);
         lock(root) {
-          _prIp[this]=c;
+          _prIp.Enqueue(c);
         }
       }
     }
     public void Set(double val, Topic prim=null) {
-      var c=new TopicCmd(val, prim);
       Topic r;
       if(_vt==VT.Ref && (r=_o as Topic)!=null) {
         r.Set(val, prim);
       } else {
+        var c=new TopicCmd(this, val, prim);
         lock(root) {
-          _prIp[this]=c;
+          _prIp.Enqueue(c);
         }
       }
     }
     public void Set(DateTime val, Topic prim=null) {
-      var c=new TopicCmd(val, prim);
       Topic r;
       if(_vt==VT.Ref && (r=_o as Topic)!=null) {
         r.Set(val, prim);
       } else {
+        var c=new TopicCmd(this, val, prim);
         lock(root) {
-          _prIp[this]=c;
+          _prIp.Enqueue(c);
         }
       }
     }
     public void Set(object val, Topic prim=null) {
-      TopicCmd c;
       Topic r;
-      switch(Type.GetTypeCode(val.GetType())) {
-      case TypeCode.Boolean:
-        c=new TopicCmd((bool)val, prim);
-        break;
-      case TypeCode.Byte:
-      case TypeCode.SByte:
-      case TypeCode.Int16:
-      case TypeCode.Int32:
-      case TypeCode.Int64:
-      case TypeCode.UInt16:
-      case TypeCode.UInt32:
-      case TypeCode.UInt64:
-        c=new TopicCmd(Convert.ToInt64(val), prim);
-        break;
-      case TypeCode.Single:
-      case TypeCode.Double:
-      case TypeCode.Decimal:
-        c=new TopicCmd(Convert.ToDouble(val), prim);
-        break;
-      case TypeCode.DateTime:
-        c=new TopicCmd((DateTime)val, prim);
-        break;
-      default:
-        c=new TopicCmd(val, prim);
-        break;
-      }
-      if(_vt==VT.Ref && (r=_o as Topic)!=null) {
+      if(val!=null && _vt==VT.Ref && (r=_o as Topic)!=null) {
         r.Set(val, prim);
       } else {
+        TopicCmd c;
+        switch(Type.GetTypeCode(val==null?null:val.GetType())) {
+        case TypeCode.Boolean:
+          c=new TopicCmd(this, (bool)val, prim);
+          break;
+        case TypeCode.Byte:
+        case TypeCode.SByte:
+        case TypeCode.Int16:
+        case TypeCode.Int32:
+        case TypeCode.Int64:
+        case TypeCode.UInt16:
+        case TypeCode.UInt32:
+        case TypeCode.UInt64:
+          c=new TopicCmd(this, Convert.ToInt64(val), prim);
+          break;
+        case TypeCode.Single:
+        case TypeCode.Double:
+        case TypeCode.Decimal:
+          c=new TopicCmd(this, Convert.ToDouble(val), prim);
+          break;
+        case TypeCode.DateTime:
+          c=new TopicCmd(this, (DateTime)val, prim);
+          break;
+        case TypeCode.Empty:
+        default:
+          c=new TopicCmd(this, val, prim);
+          break;
+        }
         lock(root) {
-          _prIp[this]=c;
+          _prIp.Enqueue(c);
         }
       }
     }
@@ -437,7 +446,7 @@ namespace X13 {
         return _o;
       }
     }
-    public T As<T>() where T : class {
+    public T As<T>() where T: class {
       return _vt==VT.Object?(_o as T):default(T);
     }
     public Topic AsRef { get { return _vt==VT.Ref?(_o as Topic):null; } }
@@ -458,12 +467,20 @@ namespace X13 {
             t.owner=null;
           }
         }
+        //TODO: for undo/redo
+        /*
+         v.oldvt=_vt;
+         
+         */
         _vt=v.vt;
         _dt=v.dt;
         _o=v.o;
         if(v.art==TopicCmd.Art.set) {
           v.art=TopicCmd.Art.changed;
         }
+      }
+      if(v.art==TopicCmd.Art.remove) {
+        _disposed=1;
       }
     }
     private void Publish(TopicCmd cmd, Action<Topic, TopicCmd> func) {
@@ -494,7 +511,7 @@ namespace X13 {
       saved=32,
     }
 
-    public class Bill : IEnumerable<Topic> {
+    public class Bill: IEnumerable<Topic> {
       public const char delmiter='/';
       public const string maskAll="#";
       public const string maskChildren="+";
@@ -585,43 +602,50 @@ namespace X13 {
     internal Topic.PriDT dt;
     internal object o;
 
+    public readonly Topic src;
     public readonly Topic prim;
     public Art art { get; internal set; }
 
-    internal TopicCmd(Art art) {
+    internal TopicCmd(Topic src, Art art) {
+      this.src=src;
       this.art=art;
       vt=Topic.VT.Undefined;
       o=null;
     }
-    internal TopicCmd(bool val, Topic prim) {
+    public TopicCmd(Topic src, bool val, Topic prim) {
+      this.src=src;
       vt=Topic.VT.Bool;
       dt.l=val?1:0;
       o=null;
       this.prim=prim;
       art=Art.set;
     }
-    internal TopicCmd(long val, Topic prim) {
+    internal TopicCmd(Topic src, long val, Topic prim) {
+      this.src=src;
       vt=Topic.VT.Integer;
       dt.l=val;
       o=null;
       this.prim=prim;
       art=Art.set;
     }
-    internal TopicCmd(double val, Topic prim) {
+    internal TopicCmd(Topic src, double val, Topic prim) {
+      this.src=src;
       vt=Topic.VT.Float;
       dt.d=val;
       o=null;
       this.prim=prim;
       art=Art.set;
     }
-    internal TopicCmd(DateTime val, Topic prim) {
+    internal TopicCmd(Topic src, DateTime val, Topic prim) {
+      this.src=src;
       vt=Topic.VT.DateTime;
       dt.dt=val;
       o=null;
       this.prim=prim;
       art=Art.set;
     }
-    internal TopicCmd(object val, Topic prim) {
+    internal TopicCmd(Topic src, object val, Topic prim) {
+      this.src=src;
       if(val==null) {
         vt=Topic.VT.Null;
       } else if(val is Topic) {
@@ -636,11 +660,13 @@ namespace X13 {
       art=Art.set;
     }
 
+
     public enum Art {
-      create,
-      set,
-      changed,
-      remove
+      create=3,
+      set=2,
+      changed=4,
+      suback=5,
+      remove=1
     }
   }
 
