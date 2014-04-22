@@ -6,7 +6,7 @@ using System.Text;
 using System.Threading;
 
 namespace X13 {
-  public sealed class Topic: IComparable<Topic> {
+  public sealed class Topic : IComparable<Topic> {
     public static readonly Topic root;
     private static Queue<TopicCmd> _prIp;
     private static Queue<TopicCmd> _prTp;
@@ -28,16 +28,30 @@ namespace X13 {
         _prTp=Interlocked.Exchange(ref _prIp, _prTp);
       }
       TopicCmd c, c1;
-      while(_prTp.Count>0){
+      Action<Topic, TopicCmd> func;
+      while(_prTp.Count>0) {
         c=_prTp.Dequeue();
-        if(_prTp.Count==64){
+        if(_prTp.Count==64) {
           _prTp.TrimExcess();
+        }
+        if(c!=null && c.art==TopicCmd.Art.subscribe && (func=c.o as Action<Topic, TopicCmd>)!=null) {
+          if(c.dt.l==0) {
+            c.src.Subscribe(new SubRec() { mask=c.src.path, ma=Bill.curArr, f=func });
+          } else if(c.dt.l==1) {
+            if(c.src==c.prim) {
+              c.src.Subscribe(new SubRec() { mask=c.prim.path+"/+", ma=Bill.childrenArr, f=func });
+              continue; 
+            }
+            c.src.Subscribe(new SubRec() { mask=c.prim.path+"/+", ma=Bill.curArr, f=func });
+          } else if(c.dt.l==2) {
+            c.src.Subscribe(new SubRec() { mask=c.prim.path+"/#", ma=Bill.allArr, f=func });
+          }
         }
         if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null ||  ((int)c.art<=(int)c1.art))) {
           _prOp[c.src.path]=c;
         }
       }
-      
+
       foreach(var cmd in _prOp.Values) {
         cmd.src.SetValue(cmd);
         //TODO: save for undo/redo
@@ -53,13 +67,13 @@ namespace X13 {
             ITenant tt;
             Topic r;
             if(cmd.src._vt==VT.Ref && (r=cmd.src._o as Topic)!=null) {
-              //r.Subscribe("", RefChanged);
+              r.Subscribe(new SubRec() { mask=r.path, ma=Bill.curArr, f=cmd.src.RefChanged });
             } else if(cmd.src._vt==VT.Object &&  (tt=cmd.src._o as ITenant)!=null) {
               tt.owner=cmd.src;
             }
           }
 
-          cmd.src.Publish(cmd, null);
+          cmd.src.Publish(cmd);
           if(cmd.src._disposed==1) {
             if(cmd.src.parent!=null) {
               cmd.src.parent._children.Remove(cmd.src.name);
@@ -74,6 +88,7 @@ namespace X13 {
 
     #region variables
     private SortedList<string, Topic> _children;
+    private List<SubRec> _subRecords;
     private Topic _parent;
     private string _name;
     private string _path;
@@ -88,7 +103,7 @@ namespace X13 {
       _name=name;
       _parent=parent;
       _vt=VT.Undefined;
-      _dt=new PriDT();
+      _dt.l=0;
       _o=null;
 
       if(parent==null) {
@@ -99,6 +114,12 @@ namespace X13 {
         _path=parent.path+"/"+name;
       }
       _disposed=0;
+      if(parent!=null) {
+        var c=new TopicCmd(this, TopicCmd.Art.create);
+        lock(root) {
+          _prIp.Enqueue(c);
+        }
+      }
     }
 
     public Topic parent {
@@ -426,7 +447,7 @@ namespace X13 {
         if(_o==null) {
           switch(_vt) {
           case VT.Bool:
-            _o=_dt.l==0;
+            _o=_dt.l!=0;
             break;
           case VT.Integer:
             _o=_dt.l;
@@ -446,10 +467,24 @@ namespace X13 {
         return _o;
       }
     }
-    public T As<T>() where T: class {
+    public T As<T>() where T : class {
       return _vt==VT.Object?(_o as T):default(T);
     }
     public Topic AsRef { get { return _vt==VT.Ref?(_o as Topic):null; } }
+
+    public event Action<Topic, TopicCmd> changed {
+      add {
+        var c=new TopicCmd(this, TopicCmd.Art.subscribe, this);
+        c.o=value;
+        _dt.l=0;
+        lock(root) {
+          _prIp.Enqueue(c);
+        }
+      }
+      remove {
+        Unsubscribe(this.path, value);
+      }
+    }
 
     private void SetValue(TopicCmd v) {
       if(v.art!=TopicCmd.Art.set 
@@ -462,16 +497,13 @@ namespace X13 {
           Topic r;
           ITenant t;
           if(_vt==VT.Ref && (r=_o as Topic)!=null) {
-            //r.Unsubscribe("", RefChanged);
+            r.Unsubscribe(r.path, RefChanged);
           } else if(_vt==VT.Object && (t=_o as ITenant)!=null) {
             t.owner=null;
           }
         }
         //TODO: for undo/redo
-        /*
-         v.oldvt=_vt;
-         
-         */
+        /*v.oldvt=_vt;*/
         _vt=v.vt;
         _dt=v.dt;
         _o=v.o;
@@ -483,58 +515,78 @@ namespace X13 {
         _disposed=1;
       }
     }
-    private void Publish(TopicCmd cmd, Action<Topic, TopicCmd> func) {
-      //if(func!=null) {
-      //  try {
-      //    func(this, cmd);
-      //  }
-      //  catch(Exception ex) {
-      //    Log.Warning("{0}.{1}({2}, ) - {3}", func.Method.DeclaringType.Name, func.Method.Name, this.path, ex.ToString());
-      //  }
-      //} else {
-
-      //}
+    private void Publish(TopicCmd cmd) {
+      Action<Topic, TopicCmd> func;
+      if(cmd.art==TopicCmd.Art.subscribe && (func=cmd.o as Action<Topic, TopicCmd>)!=null) {
+        try {
+          func(this, cmd);
+        }
+        catch(Exception ex) {
+          Log.Warning("{0}.{1}({2}, {4}) - {3}", func.Method.DeclaringType.Name, func.Method.Name, this.path, ex.ToString(), cmd.art.ToString());
+        }
+      } else {
+        if(_subRecords!=null) {
+          foreach(var sr in _subRecords) {
+            for(int i=0; i<_subRecords.Count; i++) {
+              if((func=_subRecords[i].f)!=null && (_subRecords[i].ma.Length==0 || _subRecords[i].ma[0]==Bill.maskAll)) {
+                try {
+                  func(this, cmd);
+                }
+                catch(Exception ex) {
+                  Log.Warning("{0}.{1}({2}, {4}) - {3}", func.Method.DeclaringType.Name, func.Method.Name, this.path, ex.ToString(), cmd.art.ToString());
+                }
+              }
+            }
+          }
+        }
+      }
     }
     private void RefChanged(Topic t, TopicCmd c) {
-      throw new NotImplementedException();
+      if(c.art!=TopicCmd.Art.subscribe) {
+        this.Publish(c);
+      }
+    }
+    private void Subscribe(SubRec sr) {
+      if(this._subRecords==null) {
+        this._subRecords=new List<SubRec>();
+      }
+      if(!this._subRecords.Exists(z => z.f==sr.f && z.mask==sr.mask)) {
+        this._subRecords.Add(sr);
+      }
+    }
+    private void Unsubscribe(string mask, Action<Topic, TopicCmd> f) {
+      if(this._subRecords!=null) {
+        this._subRecords.RemoveAll(z => z.f==f && z.mask==mask);
+      }
     }
 
     #region nested types
-    [Flags]
-    public enum MaskType {
-      None=0,
-      value=1,
-      children=2,
-      all=4,
-      changed=8,
-      remove=16,
-      saved=32,
-    }
-
-    public class Bill: IEnumerable<Topic> {
+    public class Bill : IEnumerable<Topic> {
       public const char delmiter='/';
+      public const string delmiterStr="/";
       public const string maskAll="#";
       public const string maskChildren="+";
       public static readonly char[] delmiterArr=new char[] { delmiter };
+      public static readonly string[] curArr=new string[0];
       public static readonly string[] allArr=new string[] { maskAll };
       public static readonly string[] childrenArr=new string[] { maskChildren };
 
       private Topic _home;
-      private MaskType _mask;
+      private bool _deep;
 
       public Bill(Topic home, bool deep) {
         _home=home;
-        _mask=deep?MaskType.all:MaskType.children;
+        _deep=deep;
       }
       public IEnumerator<Topic> GetEnumerator() {
-        if(_mask==MaskType.children) {
-          if(_home._children==null) {
-            _home._children=new SortedList<string, Topic>();
+        if(!_deep) {
+          if(_home._children!=null) {
+            Topic[] ch=_home._children.Values.ToArray();
+            for(int i=ch.Length-1; i>=0; i--) {
+              yield return ch[i];
+            }
           }
-          foreach(var t in _home._children.Values) {
-            yield return t;
-          }
-        } else if(_mask==MaskType.all) {
+        } else {
           var hist=new Stack<Topic>();
           Topic[] ch;
           Topic cur;
@@ -542,29 +594,45 @@ namespace X13 {
           do {
             cur=hist.Pop();
             yield return cur;
-            if(cur._children==null) {
-              cur._children=new SortedList<string, Topic>();
-            }
-            ch=cur._children.Values.ToArray();
-            for(int i=ch.Length-1; i>=0; i--) {
-              hist.Push(ch[i]);
+            if(cur._children!=null) {
+              ch=cur._children.Values.ToArray();
+              for(int i=ch.Length-1; i>=0; i--) {
+                hist.Push(ch[i]);
+              }
             }
           } while(hist.Any());
-        } else {
-          yield return _home;
         }
       }
-      //public event Action<Topic, TopicCmd> changed {
-      //  add {
-      //    _home.Subscribe(_mask, value);
-      //    foreach(var t in this) {
-      //      t.Publish(value);
-      //    }
-      //  }
-      //  remove {
-      //    _home.Unsubscribe(_mask, value);
-      //  }
-      //}
+      public event Action<Topic, TopicCmd> changed {
+        add {
+          TopicCmd c;
+          if(!_deep) {
+            c=new TopicCmd(_home, TopicCmd.Art.subscribe, _home);
+            c.o=value;
+            c.dt.l=1;
+            lock(root) {
+              _prIp.Enqueue(c);
+            }
+          }
+          foreach(var t in this) {
+            c=new TopicCmd(t, TopicCmd.Art.subscribe, _home);
+            c.o=value;
+            c.dt.l=_deep?2:1;
+            lock(root) {
+              _prIp.Enqueue(c);
+            }
+          }
+        }
+        remove {
+          string pa=_home.path+"/"+(_deep?maskAll:maskChildren);
+          if(!_deep) {
+            _home.Unsubscribe(pa, value);
+          }
+          foreach(var t in this) {
+            t.Unsubscribe(pa, value);
+          }
+        }
+      }
       System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() {
         return GetEnumerator();
       }
@@ -594,6 +662,12 @@ namespace X13 {
       [FieldOffset(0)]
       public DateTime dt;
     }
+
+    private struct SubRec {
+      public string mask;
+      public string [] ma;
+      public  Action<Topic, TopicCmd> f;
+    }
     #endregion nested types
   }
 
@@ -606,13 +680,14 @@ namespace X13 {
     public readonly Topic prim;
     public Art art { get; internal set; }
 
-    internal TopicCmd(Topic src, Art art) {
+    internal TopicCmd(Topic src, Art art, Topic prim=null) {
       this.src=src;
       this.art=art;
       vt=Topic.VT.Undefined;
       o=null;
+      this.prim=prim;
     }
-    public TopicCmd(Topic src, bool val, Topic prim) {
+    internal TopicCmd(Topic src, bool val, Topic prim) {
       this.src=src;
       vt=Topic.VT.Bool;
       dt.l=val?1:0;
@@ -665,7 +740,8 @@ namespace X13 {
       create=3,
       set=2,
       changed=4,
-      suback=5,
+      subscribe=5,
+      unsubscribe=6,
       remove=1
     }
   }
