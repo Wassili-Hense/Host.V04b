@@ -298,6 +298,7 @@ namespace X13.Engine_UT {
     public void T11() {
       Topic t0=root.Get("child2");
       var t1=t0.Get("ch_a");
+      var t1_a=t1.Get("a");
       cmds1=new List<TopicCmd>();
       Topic.Process();
       t0.children.changed+=cmds1Fire;
@@ -306,6 +307,7 @@ namespace X13.Engine_UT {
       Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[0].art);
       Assert.AreEqual(t1, cmds1[0].src);
       cmds1.Clear();
+
       t1.Set("Hi");
       Topic.Process();
       Assert.AreEqual(1, cmds1.Count);
@@ -313,13 +315,56 @@ namespace X13.Engine_UT {
       Assert.AreEqual(t1, cmds1[0].src);
       cmds1.Clear();
 
-      //var t1=t0.Get("ch_a");
-      //t1=t0.Get("ch_b");
-      //var t2=t1.Get("a");
-      //t2=t1.Get("b");
-      //t1=t0.Get("ch_c");
-      //t2=t1.Get("a");
+      var t2=t0.Get("ch_b");
+      Topic.Process();
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(t2, cmds1[0].src);
+      cmds1.Clear();
 
+      var t2_a=t2.Get("a");
+      Topic.Process();
+      Assert.AreEqual(0, cmds1.Count);
+      cmds1.Clear();
+    }
+    [TestMethod]
+    public void T12() {
+      Topic t0=root.Get("child3");
+      var t1=t0.Get("ch_a");
+      var t1_a=t1.Get("a");
+      cmds1=new List<TopicCmd>();
+      Topic.Process();
+      t0.all.changed+=cmds1Fire;
+      Topic.Process();
+      Assert.AreEqual(3, cmds1.Count);
+      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[0].art);
+      Assert.AreEqual(t0, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[1].art);
+      Assert.AreEqual(t1, cmds1[1].src);
+      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[2].art);
+      Assert.AreEqual(t1_a, cmds1[2].src);
+      cmds1.Clear();
+
+      t1.Set("Hi");
+      Topic.Process();
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(t1, cmds1[0].src);
+      cmds1.Clear();
+
+      var t2=t0.Get("ch_b");
+      Topic.Process();
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(t2, cmds1[0].src);
+      cmds1.Clear();
+
+      var t2_a=t2.Get("a");
+      Topic.Process();
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(t2_a, cmds1[0].src);
+      cmds1.Clear();
     }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }

@@ -34,17 +34,63 @@ namespace X13 {
         if(_prTp.Count==64) {
           _prTp.TrimExcess();
         }
-        if(c!=null && c.art==TopicCmd.Art.subscribe && (func=c.o as Action<Topic, TopicCmd>)!=null) {
-          if(c.dt.l==0) {
-            c.src.Subscribe(new SubRec() { mask=c.src.path, ma=Bill.curArr, f=func });
-          } else if(c.dt.l==1) {
-            if(c.src==c.prim) {
-              c.src.Subscribe(new SubRec() { mask=c.prim.path+"/+", ma=Bill.childrenArr, f=func });
-              continue; 
+        if(c==null || c.src==null) {
+          continue;
+        }
+        if(c.art==TopicCmd.Art.create) {
+          Topic p=c.src.parent;
+          if(p!=null) {
+            if(p._subRecords!=null) {
+              foreach(var sr in p._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskChildren)) {
+                c.src.Subscribe(new SubRec() { mask=sr.mask, ma=new string[0], f=sr.f });
+              }
             }
-            c.src.Subscribe(new SubRec() { mask=c.prim.path+"/+", ma=Bill.curArr, f=func });
-          } else if(c.dt.l==2) {
-            c.src.Subscribe(new SubRec() { mask=c.prim.path+"/#", ma=Bill.allArr, f=func });
+            while(p!=null) {
+              if(p._subRecords!=null) {
+                foreach(var sr in p._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskAll)) {
+                  c.src.Subscribe(new SubRec() { mask=sr.mask, ma=new string[0], f=sr.f });
+                }
+              }
+              p=p.parent;
+            }
+          }
+        } else if((c.art==TopicCmd.Art.subscribe || c.art==TopicCmd.Art.unsubscribe)) {
+          if((func=c.o as Action<Topic, TopicCmd>)!=null) {
+            if(c.dt.l==0) {
+              if(c.art==TopicCmd.Art.subscribe) {
+                c.src.Subscribe(new SubRec() { mask=c.src.path, ma=Bill.curArr, f=func });
+              } else {
+                c.src.Unsubscribe(c.src.path, func);
+              }
+            } else {
+              SubRec sr;
+              Bill b;
+              if(c.dt.l==1) {
+                sr=new SubRec() { mask=c.prim.path+"/+", ma=Bill.curArr, f=func };
+                if(c.art==TopicCmd.Art.subscribe) {
+                  c.src.Subscribe(new SubRec() { mask=sr.mask, ma=Bill.childrenArr, f=func });
+                } else {
+                  c.src.Unsubscribe(sr.mask, func);
+                }
+                b=c.src.children;
+              } else {
+                sr=new SubRec() { mask=c.prim.path+"/#", ma=Bill.allArr, f=func };
+                b=c.src.all;
+              }
+              foreach(Topic t in b) {
+                if(c.art==TopicCmd.Art.subscribe) {
+                  t.Subscribe(sr);
+                } else {
+                  c.src.Unsubscribe(sr.mask, func);
+                }
+                if((!_prOp.ContainsKey(t.path) || (c1=_prOp[t.path])==null ||  ((int)c.art<=(int)c1.art))) {
+                  _prOp[t.path]=new TopicCmd(t, c.art, c.src);
+                }
+              }
+              continue;
+            }
+          } else {
+            continue;
           }
         }
         if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null ||  ((int)c.art<=(int)c1.art))) {
@@ -159,14 +205,11 @@ namespace X13 {
         next=null;
         if(home._children==null) {
           home._children=new SortedList<string, Topic>();
-        }
-        if(home._children.TryGetValue(pt[i], out next)) {
+        } else if(home._children.TryGetValue(pt[i], out next)) {
           home=next;
-        } else if(create==true) {
-          home._children.TryGetValue(pt[i], out next);
         }
         if(next==null) {
-          if(create!=false) {
+          if(create) {
             next=new Topic(home, pt[i]);
             home._children.Add(pt[i], next);
           } else {
@@ -184,10 +227,8 @@ namespace X13 {
       return (topic=Get(path, false))!=null;
     }
     public void Remove() {
-      foreach(var t in this.all) {
-        lock(root) {
-          _prIp.Enqueue(new TopicCmd(this, TopicCmd.Art.remove));
-        }
+      lock(root) {
+        _prIp.Enqueue(new TopicCmd(this, TopicCmd.Art.remove));
       }
     }
     public void Move(Topic nParent, string nName) {
@@ -482,7 +523,12 @@ namespace X13 {
         }
       }
       remove {
-        Unsubscribe(this.path, value);
+        var c=new TopicCmd(this, TopicCmd.Art.unsubscribe, this);
+        c.o=value;
+        _dt.l=0;
+        lock(root) {
+          _prIp.Enqueue(c);
+        }
       }
     }
 
@@ -605,31 +651,19 @@ namespace X13 {
       }
       public event Action<Topic, TopicCmd> changed {
         add {
-          TopicCmd c;
-          if(!_deep) {
-            c=new TopicCmd(_home, TopicCmd.Art.subscribe, _home);
-            c.o=value;
-            c.dt.l=1;
-            lock(root) {
-              _prIp.Enqueue(c);
-            }
-          }
-          foreach(var t in this) {
-            c=new TopicCmd(t, TopicCmd.Art.subscribe, _home);
-            c.o=value;
-            c.dt.l=_deep?2:1;
-            lock(root) {
-              _prIp.Enqueue(c);
-            }
+          TopicCmd c=new TopicCmd(_home, TopicCmd.Art.subscribe, _home);
+          c.o=value;
+          c.dt.l=_deep?2:1;
+          lock(root) {
+            _prIp.Enqueue(c);
           }
         }
         remove {
-          string pa=_home.path+"/"+(_deep?maskAll:maskChildren);
-          if(!_deep) {
-            _home.Unsubscribe(pa, value);
-          }
-          foreach(var t in this) {
-            t.Unsubscribe(pa, value);
+          TopicCmd c=new TopicCmd(_home, TopicCmd.Art.unsubscribe, _home);
+          c.o=value;
+          c.dt.l=_deep?2:1;
+          lock(root) {
+            _prIp.Enqueue(c);
           }
         }
       }
