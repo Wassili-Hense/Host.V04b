@@ -27,8 +27,9 @@ namespace X13 {
       lock(root) {
         _prTp=Interlocked.Exchange(ref _prIp, _prTp);
       }
-      TopicCmd c, c1;
+      TopicCmd c;
       Action<Topic, TopicCmd> func;
+      Topic t;
       while(_prTp.Count>0) {
         c=_prTp.Dequeue();
         if(_prTp.Count==64) {
@@ -37,24 +38,27 @@ namespace X13 {
         if(c==null || c.src==null) {
           continue;
         }
-        if(c.art==TopicCmd.Art.create) {
-          Topic p=c.src.parent;
-          if(p!=null) {
-            if(p._subRecords!=null) {
-              foreach(var sr in p._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskChildren)) {
+        switch(c.art) {
+        case TopicCmd.Art.create:
+          if((t=c.src.parent)!=null) {
+            if(t._subRecords!=null) {
+              foreach(var sr in t._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskChildren)) {
                 c.src.Subscribe(new SubRec() { mask=sr.mask, ma=new string[0], f=sr.f });
               }
             }
-            while(p!=null) {
-              if(p._subRecords!=null) {
-                foreach(var sr in p._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskAll)) {
+            while(t!=null) {
+              if(t._subRecords!=null) {
+                foreach(var sr in t._subRecords.Where(z => z.ma!=null && z.ma.Length==1 && z.ma[0]==Bill.maskAll)) {
                   c.src.Subscribe(new SubRec() { mask=sr.mask, ma=new string[0], f=sr.f });
                 }
               }
-              p=p.parent;
+              t=t.parent;
             }
           }
-        } else if((c.art==TopicCmd.Art.subscribe || c.art==TopicCmd.Art.unsubscribe)) {
+          goto case TopicCmd.Art.set;
+
+        case TopicCmd.Art.subscribe:
+        case TopicCmd.Art.unsubscribe:
           if((func=c.o as Action<Topic, TopicCmd>)!=null) {
             if(c.dt.l==0) {
               if(c.art==TopicCmd.Art.subscribe) {
@@ -62,6 +66,7 @@ namespace X13 {
               } else {
                 c.src.Unsubscribe(c.src.path, func);
               }
+              goto case TopicCmd.Art.set;
             } else {
               SubRec sr;
               Bill b;
@@ -77,57 +82,94 @@ namespace X13 {
                 sr=new SubRec() { mask=c.prim.path+"/#", ma=Bill.allArr, f=func };
                 b=c.src.all;
               }
-              foreach(Topic t in b) {
+              foreach(Topic tmp in b) {
                 if(c.art==TopicCmd.Art.subscribe) {
-                  t.Subscribe(sr);
+                  tmp.Subscribe(sr);
                 } else {
                   c.src.Unsubscribe(sr.mask, func);
                 }
-                if((!_prOp.ContainsKey(t.path) || (c1=_prOp[t.path])==null ||  ((int)c.art<=(int)c1.art))) {
-                  _prOp[t.path]=new TopicCmd(t, c.art, c.src);
+                AssignCmd(tmp, c.art, c.src);
+              }
+            }
+          }
+          break;
+
+        case TopicCmd.Art.remove:
+          foreach(Topic tmp in c.src.all) {
+            AssignCmd(tmp, c.art, c.prim);
+          }
+          break;
+        case TopicCmd.Art.move:
+          if((t=c.o as Topic)!=null) {
+            string oPath=c.src.path;
+            string nPath=t.path;
+            t._children=c.src._children;
+            c.src._children=null;
+            t._vt=c.src._vt;
+            c.src._vt=VT.Undefined;
+            t._dt=c.src._dt;
+            t._o=c.src._o;
+            c.src._o=null;
+            if(c.src._subRecords!=null) {
+              foreach(var sr in c.src._subRecords) {
+                if(sr.mask.StartsWith(oPath)) {
+                  t.Subscribe(new SubRec() { mask=sr.mask.Replace(oPath, nPath), ma=sr.ma, f=sr.f });
                 }
               }
-              continue;
             }
-          } else {
-            continue;
+            foreach(var t1 in t.children) {
+              t1._parent=t;
+            }
+            foreach(var t1 in t.all) {
+              if(t1._subRecords!=null){
+                for(int i=t1._subRecords.Count-1; i>=0; i--) {
+                  if(t1._subRecords[i].mask.StartsWith(oPath)) {
+                    t1._subRecords[i]=new SubRec() { mask=t1._subRecords[i].mask.Replace(oPath, nPath), ma=t1._subRecords[i].ma, f=t1._subRecords[i].f };
+                  } else if(!t1._subRecords[i].mask.StartsWith(nPath)) {
+                    t1._subRecords.RemoveAt(i);
+                  }
+                }
+              }
+              t1._path=t1.parent==root?string.Concat("/", t1.name):string.Concat(t1.parent.path, "/", t1.name);
+              AssignCmd(t1, TopicCmd.Art.create, c.prim);
+            }
+            goto case TopicCmd.Art.set;
           }
-        } else if(c.art==TopicCmd.Art.remove) {
-          foreach(Topic t in c.src.all) {
-            if((!_prOp.ContainsKey(t.path) || (c1=_prOp[t.path])==null ||  ((int)TopicCmd.Art.remove<=(int)c1.art))) {
-              _prOp[t.path]=new TopicCmd(t, TopicCmd.Art.remove, c.prim);
+          break;
+        case TopicCmd.Art.changed:
+        case TopicCmd.Art.set: {
+            TopicCmd c1;
+            if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null || ((int)c.art<=(int)c1.art))) {
+              _prOp[c.src.path]=c;
             }
           }
-          continue;
-        }
-        if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null ||  ((int)c.art<=(int)c1.art))) {
-          _prOp[c.src.path]=c;
+          break;
         }
       }
 
       foreach(var cmd in _prOp.Values) {
-        if(cmd.art!=TopicCmd.Art.subscribe && cmd.art!=TopicCmd.Art.unsubscribe) {
+        if(cmd.art==TopicCmd.Art.set || cmd.art==TopicCmd.Art.remove) {
           if(cmd.art!=TopicCmd.Art.set 
         || cmd.src._vt!=cmd.vt 
         || ((cmd.src._vt==VT.Object || cmd.src._vt==VT.Ref || cmd.src._vt==VT.String) && !object.Equals(cmd.src._o, cmd.o))
         || ((cmd.src._vt==VT.Bool || cmd.src._vt==VT.Integer) && cmd.src._dt.l!=cmd.dt.l)
         || (cmd.src._vt==VT.Float && cmd.src._dt.d!=cmd.dt.d)
         || (cmd.src._vt==VT.DateTime && cmd.src._dt.dt!=cmd.dt.dt)) {
-          cmd.old_vt=cmd.src._vt;
-          cmd.old_dt=cmd.src._dt;
-          cmd.old_o=cmd.src._o;
-          cmd.src._vt=cmd.vt;
-          cmd.src._dt=cmd.dt;
-          cmd.src._o=cmd.o;
+            cmd.old_vt=cmd.src._vt;
+            cmd.old_dt=cmd.src._dt;
+            cmd.old_o=cmd.src._o;
+            cmd.src._vt=cmd.vt;
+            cmd.src._dt=cmd.dt;
+            cmd.src._o=cmd.o;
             if(cmd.art==TopicCmd.Art.set) {
               cmd.art=TopicCmd.Art.changed;
             }
           }
-          if(cmd.art==TopicCmd.Art.remove) {
-            cmd.src._disposed=1;
-            if(cmd.src.parent!=null) {
-              cmd.src.parent._children.Remove(cmd.src.name);
-            }
+        }
+        if(cmd.art==TopicCmd.Art.remove || cmd.art==TopicCmd.Art.move) {
+          cmd.src._disposed=1;
+          if(cmd.src.parent!=null) {
+            cmd.src.parent._children.Remove(cmd.src.name);
           }
         }
         //TODO: save for undo/redo
@@ -141,11 +183,11 @@ namespace X13 {
         if(cmd.art==TopicCmd.Art.changed || cmd.art==TopicCmd.Art.remove) {
           if(cmd.old_o!=null) {
             Topic r;
-            ITenant t;
+            ITenant it;
             if(cmd.old_vt==VT.Ref && (r=cmd.old_o as Topic)!=null) {
               r.Unsubscribe(r.path, cmd.src.RefChanged);
-            } else if(cmd.old_vt==VT.Object && (t=cmd.old_o as ITenant)!=null) {
-              t.owner=null;
+            } else if(cmd.old_vt==VT.Object && (it=cmd.old_o as ITenant)!=null) {
+              it.owner=null;
             }
           }
         }
@@ -169,6 +211,12 @@ namespace X13 {
       }
       _prOp.Clear();
       _busyFlag=1;
+    }
+    private static void AssignCmd(Topic src, TopicCmd.Art art, Topic prim) {
+      TopicCmd c1;
+      if((!_prOp.ContainsKey(src.path) || (c1=_prOp[src.path])==null ||  ((int)art<=(int)c1.art))) {
+        _prOp[src.path]=new TopicCmd(src, art, prim);
+      }
     }
 
     #region variables
@@ -199,12 +247,6 @@ namespace X13 {
         _path=parent.path+"/"+name;
       }
       _disposed=0;
-      if(parent!=null) {
-        var c=new TopicCmd(this, TopicCmd.Art.create);
-        lock(root) {
-          _prIp.Enqueue(c);
-        }
-      }
     }
 
     public Topic parent {
@@ -251,6 +293,10 @@ namespace X13 {
           if(create) {
             next=new Topic(home, pt[i]);
             home._children.Add(pt[i], next);
+            var c=new TopicCmd(next, TopicCmd.Art.create);
+            lock(root) {
+              _prIp.Enqueue(c);
+            }
           } else {
             return null;
           }
@@ -265,13 +311,30 @@ namespace X13 {
     public bool Exist(string path, out Topic topic) {
       return (topic=Get(path, false))!=null;
     }
-    public void Remove() {
+    public void Remove(Topic prim=null) {
+      var cmd=new TopicCmd(this, TopicCmd.Art.remove, prim);
       lock(root) {
-        _prIp.Enqueue(new TopicCmd(this, TopicCmd.Art.remove));
+        _prIp.Enqueue(cmd);
       }
     }
-    public void Move(Topic nParent, string nName) {
-      throw new NotImplementedException();
+    public Topic Move(Topic nParent, string nName, Topic prim=null) {
+      if(nParent==null) {
+        nParent=this.parent;
+      }
+      if(string.IsNullOrEmpty(nName)) {
+        nName=this.name;
+      }
+      if(nParent.Exist(nName)) {
+        throw new ArgumentException(string.Concat(this.path, ".Move(", nParent.path, "/", nName, ") - destination already exist"));
+      }
+      Topic dst=new Topic(nParent, nName);
+      nParent._children.Add(nName, dst);
+      var c=new TopicCmd(this, TopicCmd.Art.move, prim);
+      c.o=dst;
+      lock(root) {
+        _prIp.Enqueue(c);
+      }
+      return dst;
     }
     public override string ToString() {
       return _path;
@@ -599,7 +662,18 @@ namespace X13 {
     }
     private void RefChanged(Topic t, TopicCmd c) {
       if(c.art!=TopicCmd.Art.subscribe) {
-        this.Publish(c);
+        if(c.art==TopicCmd.Art.move) {
+          Topic dst;
+          if(_vt==VT.Ref && (_o as Topic)==c.src && (dst=c.o as Topic)!=null) {
+            _o=dst;
+            dst.Subscribe(new SubRec() { f=this.RefChanged, mask=dst.path, ma=Bill.curArr });
+            var cmd=new TopicCmd(this, dst, c.prim);
+            cmd.art=TopicCmd.Art.changed;
+            this.Publish(cmd);
+          }
+        } else {
+          this.Publish(c);
+        }
       }
     }
     private void Subscribe(SubRec sr) {
@@ -784,11 +858,12 @@ namespace X13 {
 
 
     public enum Art {
-      create=3,
-      set=2,
-      changed=4,
-      subscribe=5,
-      unsubscribe=6,
+      create=4,
+      set=3,
+      changed=5,
+      subscribe=6,
+      unsubscribe=7,
+      move=2,
       remove=1
     }
   }

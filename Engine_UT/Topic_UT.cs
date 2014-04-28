@@ -366,7 +366,8 @@ namespace X13.Engine_UT {
       Assert.AreEqual(t2_a, cmds1[0].src);
       cmds1.Clear();
     }
-    [TestMethod] public void T13() {
+    [TestMethod]
+    public void T13() {
       var b1=root.Get("B1");
       Topic.Process();
       b1.Remove();
@@ -385,7 +386,55 @@ namespace X13.Engine_UT {
       Assert.IsFalse(root.Exist("/B2/A"));
 
     }
-    //[TestMethod] public void T01() { }
+    [TestMethod]
+    public void T14() {
+      cmds1=new List<TopicCmd>();
+
+      var b3=root.Get("B3");
+      Topic.Process();
+      b3.all.changed+=cmds1Fire;
+      b3.Set(91.02);
+      Topic.Process();
+      cmds1.Clear();
+
+      var c3=b3.Move(root, "C3");
+      Topic.Process();
+      Assert.AreEqual(true, b3.disposed);
+      Assert.AreEqual(false, root.Exist("B3"));
+      Assert.AreNotEqual(b3, c3);
+      Assert.AreEqual("C3", c3.name);
+      Assert.AreEqual(91.02, c3.AsDouble);
+      Assert.AreEqual(2, cmds1.Count);
+      Assert.AreEqual(b3, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.move, cmds1[0].art);
+      Assert.AreEqual(c3, cmds1[1].src);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[1].art);
+      cmds1.Clear();
+
+      var c3_a=c3.Get("A");
+      c3_a.Set(9577);
+      Topic.Process();
+      cmds1.Clear();
+
+      var d3=c3.Move(root, "D3");
+      Topic.Process();
+      Assert.AreEqual(true, c3.disposed);
+      Assert.AreEqual(false, root.Exist("C3"));
+      Assert.AreNotEqual(c3, d3);
+      Assert.AreEqual("D3", d3.name);
+      Assert.AreEqual(91.02, d3.AsDouble);
+      Assert.AreEqual(d3, c3_a.parent);
+      Assert.AreEqual("/D3/A", c3_a.path);
+      Assert.AreEqual(9577, c3_a.AsLong);
+      Assert.AreEqual(3, cmds1.Count);
+      Assert.AreEqual(c3, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.move, cmds1[0].art);
+      Assert.AreEqual(d3, cmds1[1].src);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[1].art);
+      Assert.AreEqual(c3_a, cmds1[2].src);
+      Assert.AreEqual(TopicCmd.Art.create, cmds1[2].art);
+      cmds1.Clear();
+    }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
