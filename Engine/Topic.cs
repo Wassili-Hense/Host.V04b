@@ -92,6 +92,13 @@ namespace X13 {
           } else {
             continue;
           }
+        } else if(c.art==TopicCmd.Art.remove) {
+          foreach(Topic t in c.src.all) {
+            if((!_prOp.ContainsKey(t.path) || (c1=_prOp[t.path])==null ||  ((int)TopicCmd.Art.remove<=(int)c1.art))) {
+              _prOp[t.path]=new TopicCmd(t, TopicCmd.Art.remove, c.prim);
+            }
+          }
+          continue;
         }
         if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null ||  ((int)c.art<=(int)c1.art))) {
           _prOp[c.src.path]=c;
@@ -99,7 +106,30 @@ namespace X13 {
       }
 
       foreach(var cmd in _prOp.Values) {
-        cmd.src.SetValue(cmd);
+        if(cmd.art!=TopicCmd.Art.subscribe && cmd.art!=TopicCmd.Art.unsubscribe) {
+          if(cmd.art!=TopicCmd.Art.set 
+        || cmd.src._vt!=cmd.vt 
+        || ((cmd.src._vt==VT.Object || cmd.src._vt==VT.Ref || cmd.src._vt==VT.String) && !object.Equals(cmd.src._o, cmd.o))
+        || ((cmd.src._vt==VT.Bool || cmd.src._vt==VT.Integer) && cmd.src._dt.l!=cmd.dt.l)
+        || (cmd.src._vt==VT.Float && cmd.src._dt.d!=cmd.dt.d)
+        || (cmd.src._vt==VT.DateTime && cmd.src._dt.dt!=cmd.dt.dt)) {
+          cmd.old_vt=cmd.src._vt;
+          cmd.old_dt=cmd.src._dt;
+          cmd.old_o=cmd.src._o;
+          cmd.src._vt=cmd.vt;
+          cmd.src._dt=cmd.dt;
+          cmd.src._o=cmd.o;
+            if(cmd.art==TopicCmd.Art.set) {
+              cmd.art=TopicCmd.Art.changed;
+            }
+          }
+          if(cmd.art==TopicCmd.Art.remove) {
+            cmd.src._disposed=1;
+            if(cmd.src.parent!=null) {
+              cmd.src.parent._children.Remove(cmd.src.name);
+            }
+          }
+        }
         //TODO: save for undo/redo
         /*IHistory h;
         if(cmd.prim!=null && cmd.prim._vt==VT.Object && (h=cmd.prim._o as IHistory)!=null) {
@@ -108,7 +138,18 @@ namespace X13 {
       }
 
       foreach(var cmd in _prOp.Values) {
-        if(cmd.art!=TopicCmd.Art.set) {
+        if(cmd.art==TopicCmd.Art.changed || cmd.art==TopicCmd.Art.remove) {
+          if(cmd.old_o!=null) {
+            Topic r;
+            ITenant t;
+            if(cmd.old_vt==VT.Ref && (r=cmd.old_o as Topic)!=null) {
+              r.Unsubscribe(r.path, cmd.src.RefChanged);
+            } else if(cmd.old_vt==VT.Object && (t=cmd.old_o as ITenant)!=null) {
+              t.owner=null;
+            }
+          }
+        }
+        if(cmd.art==TopicCmd.Art.changed || cmd.art==TopicCmd.Art.create) {
           if(cmd.src._o!=null && cmd.src._disposed<1) {
             ITenant tt;
             Topic r;
@@ -118,14 +159,12 @@ namespace X13 {
               tt.owner=cmd.src;
             }
           }
-
+        }
+        if(cmd.art!=TopicCmd.Art.set) {
           cmd.src.Publish(cmd);
-          if(cmd.src._disposed==1) {
-            if(cmd.src.parent!=null) {
-              cmd.src.parent._children.Remove(cmd.src.name);
-            }
-            cmd.src._disposed=2;
-          }
+        }
+        if(cmd.src._disposed==1) {
+          cmd.src._disposed=2;
         }
       }
       _prOp.Clear();
@@ -532,35 +571,6 @@ namespace X13 {
       }
     }
 
-    private void SetValue(TopicCmd v) {
-      if(v.art!=TopicCmd.Art.set 
-        || _vt!=v.vt 
-        || ((_vt==VT.Object || _vt==VT.Ref || _vt==VT.String) && !object.Equals(_o, v.o))
-        || ((_vt==VT.Bool || _vt==VT.Integer) && _dt.l!=v.dt.l)
-        || (_vt==VT.Float && _dt.d!=v.dt.d)
-        || (_vt==VT.DateTime && _dt.dt!=v.dt.dt)) {
-        if(_o!=null) {
-          Topic r;
-          ITenant t;
-          if(_vt==VT.Ref && (r=_o as Topic)!=null) {
-            r.Unsubscribe(r.path, RefChanged);
-          } else if(_vt==VT.Object && (t=_o as ITenant)!=null) {
-            t.owner=null;
-          }
-        }
-        //TODO: for undo/redo
-        /*v.oldvt=_vt;*/
-        _vt=v.vt;
-        _dt=v.dt;
-        _o=v.o;
-        if(v.art==TopicCmd.Art.set) {
-          v.art=TopicCmd.Art.changed;
-        }
-      }
-      if(v.art==TopicCmd.Art.remove) {
-        _disposed=1;
-      }
-    }
     private void Publish(TopicCmd cmd) {
       Action<Topic, TopicCmd> func;
       if(cmd.art==TopicCmd.Art.subscribe && (func=cmd.o as Action<Topic, TopicCmd>)!=null) {
@@ -709,6 +719,9 @@ namespace X13 {
     internal Topic.VT vt;
     internal Topic.PriDT dt;
     internal object o;
+    internal Topic.VT old_vt;
+    internal Topic.PriDT old_dt;
+    internal object old_o;
 
     public readonly Topic src;
     public readonly Topic prim;

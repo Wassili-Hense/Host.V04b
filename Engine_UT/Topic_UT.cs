@@ -366,6 +366,27 @@ namespace X13.Engine_UT {
       Assert.AreEqual(t2_a, cmds1[0].src);
       cmds1.Clear();
     }
+    [TestMethod] public void T13() {
+      var b1=root.Get("B1");
+      Topic.Process();
+      b1.Remove();
+      Topic.Process();
+      Assert.IsTrue(b1.disposed);
+      Assert.IsFalse(root.Exist("B1"));
+      b1=null;
+      var b2=root.Get("B2");
+      var b2_a=b2.Get("A");
+      Topic.Process();
+      b2.Remove();
+      Topic.Process();
+      Assert.IsTrue(b2.disposed);
+      Assert.IsFalse(root.Exist("B2"));
+      Assert.IsTrue(b2_a.disposed);
+      Assert.IsFalse(root.Exist("/B2/A"));
+
+    }
+    //[TestMethod] public void T01() { }
+    //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
