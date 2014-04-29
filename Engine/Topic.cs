@@ -121,7 +121,7 @@ namespace X13 {
               t1._parent=t;
             }
             foreach(var t1 in t.all) {
-              if(t1._subRecords!=null){
+              if(t1._subRecords!=null) {
                 for(int i=t1._subRecords.Count-1; i>=0; i--) {
                   if(t1._subRecords[i].mask.StartsWith(oPath)) {
                     t1._subRecords[i]=new SubRec() { mask=t1._subRecords[i].mask.Replace(oPath, nPath), ma=t1._subRecords[i].ma, f=t1._subRecords[i].f };
@@ -257,6 +257,30 @@ namespace X13 {
     }
     public string path {
       get { return _path; }
+    }
+    public Type vType {
+      get {
+        switch(_vt) {
+        case VT.Null:
+        case VT.Undefined:
+          return null;
+        case VT.Bool:
+          return typeof(bool);
+        case VT.Integer:
+          return typeof(long);
+        case VT.Float:
+          return typeof(double);
+        case VT.DateTime:
+          return typeof(DateTime);
+        case VT.String:
+          return _o==null?null:typeof(string);
+        case VT.Ref:
+          return _o==null?null:typeof(Topic);
+        case VT.Object:
+          return _o==null?null:_o.GetType();
+        }
+        return null;
+      }
     }
     public Bill all { get { return new Bill(this, true); } }
     public Bill children { get { return new Bill(this, false); } }
@@ -661,18 +685,30 @@ namespace X13 {
       }
     }
     private void RefChanged(Topic t, TopicCmd c) {
-      if(c.art!=TopicCmd.Art.subscribe) {
+      if(_vt==VT.Ref && (_o as Topic)==c.src) {
         if(c.art==TopicCmd.Art.move) {
           Topic dst;
-          if(_vt==VT.Ref && (_o as Topic)==c.src && (dst=c.o as Topic)!=null) {
+          if((dst=c.o as Topic)!=null) {
             _o=dst;
             dst.Subscribe(new SubRec() { f=this.RefChanged, mask=dst.path, ma=Bill.curArr });
             var cmd=new TopicCmd(this, dst, c.prim);
             cmd.art=TopicCmd.Art.changed;
             this.Publish(cmd);
           }
-        } else {
+        } else if(c.art==TopicCmd.Art.changed) {
           this.Publish(c);
+        } else if(c.art==TopicCmd.Art.remove) {
+          var cmd=new TopicCmd(this, TopicCmd.Art.changed, c.prim);
+          cmd.old_vt=_vt;
+          _vt=c.old_vt;
+          cmd.vt=_vt;
+          cmd.old_dt=_dt;
+          _dt=c.old_dt;
+          cmd.dt=_dt;
+          cmd.old_o=_o;
+          _o=c.old_o;
+          cmd.o=_o;
+          this.Publish(cmd);
         }
       }
     }

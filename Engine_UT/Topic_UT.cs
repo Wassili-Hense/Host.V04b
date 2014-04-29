@@ -435,7 +435,46 @@ namespace X13.Engine_UT {
       Assert.AreEqual(TopicCmd.Art.create, cmds1[2].art);
       cmds1.Clear();
     }
-    //[TestMethod] public void T01() { }
+    [TestMethod]
+    public void T15() {
+      cmds1=new List<TopicCmd>();
+
+      var r=Topic.root.Get("t15");
+      var a1=r.Get("a1");
+      var a2=r.Get("a2");
+      a1.Set(13);
+      a2.Set(a1);
+      a2.changed+=cmds1Fire;
+      Topic.Process();
+      cmds1.Clear();
+
+      Assert.AreEqual(13, a2.AsLong);
+      var b1=a1.Move(r, "b1");
+      Topic.Process();
+      Assert.AreEqual(b1, a2.AsRef);
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(a2, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      cmds1.Clear();
+
+      b1.Set(15);
+      Topic.Process();
+      Assert.AreEqual(15, a2.AsLong);
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(b1, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      cmds1.Clear();
+
+      b1.Remove();
+      Topic.Process();
+      Assert.AreEqual(null, a2.AsRef);
+      Assert.AreEqual(15, a2.AsLong);
+      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(a2, cmds1[0].src);
+      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      cmds1.Clear();
+
+    }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
