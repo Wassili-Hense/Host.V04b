@@ -434,6 +434,13 @@ namespace X13.Engine_UT {
       Assert.AreEqual(c3_a, cmds1[2].src);
       Assert.AreEqual(TopicCmd.Art.create, cmds1[2].art);
       cmds1.Clear();
+
+      d3.Set(17);
+      var e3=d3.Move(root, "e3");
+      Topic.Process();
+      Assert.AreEqual(17, e3.AsLong);
+      cmds1.Clear();
+
     }
     [TestMethod]
     public void T15() {

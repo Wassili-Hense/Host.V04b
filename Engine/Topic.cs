@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -12,12 +13,14 @@ namespace X13 {
     private static Queue<TopicCmd> _prTp;
     private static SortedList<string, TopicCmd> _prOp;
     private static int _busyFlag;
+    private static JsonSerializerSettings _jset;
 
     static Topic() {
       _prIp=new Queue<TopicCmd>();
       _prTp=new Queue<TopicCmd>();
       _prOp=new SortedList<string, TopicCmd>();
       root=new Topic(null, "/");
+      _jset=new JsonSerializerSettings() { DateFormatHandling=Newtonsoft.Json.DateFormatHandling.IsoDateFormat, DateParseHandling=Newtonsoft.Json.DateParseHandling.DateTime, MissingMemberHandling=Newtonsoft.Json.MissingMemberHandling.Ignore, DefaultValueHandling=Newtonsoft.Json.DefaultValueHandling.Include, NullValueHandling=Newtonsoft.Json.NullValueHandling.Include, TypeNameHandling=Newtonsoft.Json.TypeNameHandling.Auto };
       _busyFlag=1;
     }
     public static void Process() {
@@ -133,13 +136,17 @@ namespace X13 {
               t1._path=t1.parent==root?string.Concat("/", t1.name):string.Concat(t1.parent.path, "/", t1.name);
               AssignCmd(t1, TopicCmd.Art.create, c.prim);
             }
+            TopicCmd c1;
+            if(_prOp.TryGetValue(c.src.path, out c1) && c1!=null && c1.art==TopicCmd.Art.set) {
+              _prOp[t.path]=new TopicCmd(t, TopicCmd.Art.set, c1.prim) { vt=c1.vt, dt=c1.dt, o=c1.o };
+            }
             goto case TopicCmd.Art.set;
           }
           break;
         case TopicCmd.Art.changed:
         case TopicCmd.Art.set: {
             TopicCmd c1;
-            if(c!=null && (!_prOp.ContainsKey(c.src.path) || (c1=_prOp[c.src.path])==null || ((int)c.art<=(int)c1.art))) {
+            if(!_prOp.TryGetValue(c.src.path, out c1) || c1==null || ((int)c.art<=(int)c1.art)) {
               _prOp[c.src.path]=c;
             }
           }
@@ -214,7 +221,7 @@ namespace X13 {
     }
     private static void AssignCmd(Topic src, TopicCmd.Art art, Topic prim) {
       TopicCmd c1;
-      if((!_prOp.ContainsKey(src.path) || (c1=_prOp[src.path])==null ||  ((int)art<=(int)c1.art))) {
+      if((!_prOp.TryGetValue(src.path, out c1) || c1==null ||  ((int)art<=(int)c1.art))) {
         _prOp[src.path]=new TopicCmd(src, art, prim);
       }
     }
@@ -638,7 +645,24 @@ namespace X13 {
       return _vt==VT.Object?(_o as T):default(T);
     }
     public Topic AsRef { get { return _vt==VT.Ref?(_o as Topic):null; } }
-
+    public string ToJson() {
+      string json;
+      switch(_vt) {
+      case VT.Null:
+        json=JsonConvert.Null;
+        break;
+      case VT.Undefined:
+        json=JsonConvert.Undefined;
+        break;
+      case VT.Ref:
+        json=string.Empty;
+        break;
+      default:
+        json=JsonConvert.SerializeObject(this.AsObject, _jset);
+        break;
+      }
+      return json;
+    }
     public event Action<Topic, TopicCmd> changed {
       add {
         var c=new TopicCmd(this, TopicCmd.Art.subscribe, this);
@@ -669,15 +693,13 @@ namespace X13 {
         }
       } else {
         if(_subRecords!=null) {
-          foreach(var sr in _subRecords) {
-            for(int i=0; i<_subRecords.Count; i++) {
-              if((func=_subRecords[i].f)!=null && (_subRecords[i].ma.Length==0 || _subRecords[i].ma[0]==Bill.maskAll)) {
-                try {
-                  func(this, cmd);
-                }
-                catch(Exception ex) {
-                  Log.Warning("{0}.{1}({2}, {4}) - {3}", func.Method.DeclaringType.Name, func.Method.Name, this.path, ex.ToString(), cmd.art.ToString());
-                }
+          for(int i=0; i<_subRecords.Count; i++) {
+            if((func=_subRecords[i].f)!=null && (_subRecords[i].ma.Length==0 || _subRecords[i].ma[0]==Bill.maskAll)) {
+              try {
+                func(this, cmd);
+              }
+              catch(Exception ex) {
+                Log.Warning("{0}.{1}({2}, {4}) - {3}", func.Method.DeclaringType.Name, func.Method.Name, this.path, ex.ToString(), cmd.art.ToString());
               }
             }
           }
