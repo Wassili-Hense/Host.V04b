@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -13,14 +15,15 @@ namespace X13 {
     private static Queue<TopicCmd> _prTp;
     private static SortedList<string, TopicCmd> _prOp;
     private static int _busyFlag;
-    private static JsonSerializerSettings _jset;
+    private static JsonSerializer _jser;
 
     static Topic() {
       _prIp=new Queue<TopicCmd>();
       _prTp=new Queue<TopicCmd>();
       _prOp=new SortedList<string, TopicCmd>();
       root=new Topic(null, "/");
-      _jset=new JsonSerializerSettings() { DateFormatHandling=Newtonsoft.Json.DateFormatHandling.IsoDateFormat, DateParseHandling=Newtonsoft.Json.DateParseHandling.DateTime, MissingMemberHandling=Newtonsoft.Json.MissingMemberHandling.Ignore, DefaultValueHandling=Newtonsoft.Json.DefaultValueHandling.Include, NullValueHandling=Newtonsoft.Json.NullValueHandling.Include, TypeNameHandling=Newtonsoft.Json.TypeNameHandling.Auto };
+      _jser=JsonSerializer.Create(new JsonSerializerSettings() { DateFormatHandling=DateFormatHandling.IsoDateFormat, DateParseHandling=DateParseHandling.DateTime, MissingMemberHandling=MissingMemberHandling.Ignore, DefaultValueHandling=DefaultValueHandling.Include, NullValueHandling=NullValueHandling.Include, TypeNameHandling=TypeNameHandling.Objects, PreserveReferencesHandling=PreserveReferencesHandling.None});
+      _jser.ReferenceResolver=new RefResolver();
       _busyFlag=1;
     }
     public static void Process() {
@@ -165,9 +168,58 @@ namespace X13 {
             cmd.old_vt=cmd.src._vt;
             cmd.old_dt=cmd.src._dt;
             cmd.old_o=cmd.src._o;
-            cmd.src._vt=cmd.vt;
-            cmd.src._dt=cmd.dt;
-            cmd.src._o=cmd.o;
+            if(cmd.vt==VT.Json) {
+              string json=cmd.o as string;
+              if(string.IsNullOrEmpty(json)) {
+                cmd.src._vt=VT.Undefined;
+              } else {
+                using(JsonTextReader reader = new JsonTextReader(new StringReader(json))) {
+                  if(reader.Read()) {
+                    switch(reader.TokenType) {
+                    case JsonToken.Boolean:
+                      cmd.src._vt=VT.Bool;
+                      cmd.src._dt.l=((bool)reader.Value)?1:0;
+                      cmd.src._o=null;
+                      break;
+                    case JsonToken.Integer:
+                      cmd.src._vt=VT.Integer;
+                      cmd.src._dt.l=(long)reader.Value;
+                      cmd.src._o=null;
+                      break;
+                    case JsonToken.Float:
+                      cmd.src._vt=VT.Float;
+                      cmd.src._dt.d=(double)reader.Value;
+                      cmd.src._o=null;
+                      break;
+                    case JsonToken.Date:
+                      cmd.src._vt=VT.DateTime;
+                      cmd.src._dt.dt=(DateTime)reader.Value;
+                      cmd.src._o=null;
+                      break;
+                    case JsonToken.String:
+                      cmd.src._vt=VT.String;
+                      cmd.src._dt.l=0;
+                      cmd.src._o=reader.Value;
+                      break;
+                    default:
+                      cmd.src._o=_jser.Deserialize(new JsonTextReader(new StringReader(json)));
+                      if(cmd.src._o==null) {
+                        cmd.src._vt=VT.Null;
+                      } else if(cmd.src._o is Topic) {
+                        cmd.src._vt=VT.Ref;
+                      } else {
+                        cmd.src._vt=VT.Object;
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+            } else {
+              cmd.src._vt=cmd.vt;
+              cmd.src._dt=cmd.dt;
+              cmd.src._o=cmd.o;
+            }
             if(cmd.art==TopicCmd.Art.set) {
               cmd.art=TopicCmd.Art.changed;
             }
@@ -297,7 +349,7 @@ namespace X13 {
     /// <param name="path">relative or absolute path</param>
     /// <param name="create">true - create, false - check</param>
     /// <returns>item or null</returns>
-    public Topic Get(string path, bool create=true) {
+    public Topic Get(string path, bool create=true, Topic prim=null) {
       if(string.IsNullOrEmpty(path)) {
         return this;
       }
@@ -324,7 +376,7 @@ namespace X13 {
           if(create) {
             next=new Topic(home, pt[i]);
             home._children.Add(pt[i], next);
-            var c=new TopicCmd(next, TopicCmd.Art.create);
+            var c=new TopicCmd(next, TopicCmd.Art.create, prim);
             lock(root) {
               _prIp.Enqueue(c);
             }
@@ -457,6 +509,14 @@ namespace X13 {
         lock(root) {
           _prIp.Enqueue(c);
         }
+      }
+    }
+    public void SetJson(string json, Topic prim=null) {
+      var c=new TopicCmd(this, TopicCmd.Art.set, prim);
+      c.o=json;
+      c.vt=VT.Json;
+      lock(root) {
+        _prIp.Enqueue(c);
       }
     }
     public bool AsBool {
@@ -654,11 +714,26 @@ namespace X13 {
       case VT.Undefined:
         json=JsonConvert.Undefined;
         break;
+      case VT.Bool:
+        json=_dt.l==0?JsonConvert.False:JsonConvert.True;
+        break;
+      case VT.Integer:
+        json=_dt.l.ToString();
+        break;
+      case VT.Float:
+        json=JsonConvert.SerializeObject(_dt.d);
+        break;
+      case VT.DateTime:
+        json=JsonConvert.SerializeObject(_dt.dt);
+        break;
       case VT.Ref:
-        json=string.Empty;
+        json=string.Concat("{\"$ref\":\"",(_o as Topic).path ,"\"}");
         break;
       default:
-        json=JsonConvert.SerializeObject(this.AsObject, _jset);
+        using(var tw=new StringWriter()){
+          _jser.Serialize(tw, this.AsObject);
+          json=tw.ToString();
+        }
         break;
       }
       return json;
@@ -814,19 +889,39 @@ namespace X13 {
       }
     }
 
+    private class RefResolver : Newtonsoft.Json.Serialization.IReferenceResolver {
+      public void AddReference(object context, string reference, object value) {
+      }
+
+      public string GetReference(object context, object value) {
+        Topic t=value as Topic;
+        return (t!=null)?t.path:string.Empty;
+      }
+
+      public bool IsReferenced(object context, object value) {
+        Topic t=value as Topic;
+        return t!=null;
+      }
+
+      public object ResolveReference(object context, string path) {
+        return Topic.root.Get(path);
+      }
+    }
+
     internal enum VT {
       Undefined = 0,
       Null,
-      Integer,
-      DateTime,
       Bool,
-      String,
+      Integer,
       Float,
+      DateTime,
+      String,
       Object,
       //Array,
       //Record,
       //Binary,
-      Ref
+      Ref,
+      Json,
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -859,7 +954,7 @@ namespace X13 {
     public readonly Topic prim;
     public Art art { get; internal set; }
 
-    internal TopicCmd(Topic src, Art art, Topic prim=null) {
+    internal TopicCmd(Topic src, Art art, Topic prim) {
       this.src=src;
       this.art=art;
       vt=Topic.VT.Undefined;

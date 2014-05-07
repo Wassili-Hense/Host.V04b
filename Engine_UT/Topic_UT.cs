@@ -59,6 +59,9 @@ namespace X13.Engine_UT {
     public static void MyClassInitialize(TestContext testContext) {
       r=new Random((int)DateTime.Now.Ticks);
       root=Topic.root;
+      //root.SetJson("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":315,\"B\":0.41}");
+      //Topic.Process();
+      //root.ToJson();
     }
 
     private List<TopicCmd> cmds1;
@@ -482,9 +485,93 @@ namespace X13.Engine_UT {
       cmds1.Clear();
 
     }
+    [TestMethod]
+    public void T16() {
+      Topic t16=Topic.root.Get("/t16");
+      Topic.Process();
+      t16.SetJson("true");
+      Topic.Process();
+      Assert.AreEqual(typeof(bool), t16.vType);
+      Assert.AreEqual(true, t16.AsBool);
+      t16.SetJson("137");
+      Topic.Process();
+      Assert.AreEqual(typeof(long), t16.vType);
+      Assert.AreEqual(137, t16.AsLong);
+      t16.SetJson("35.97");
+      Topic.Process();
+      Assert.AreEqual(typeof(double), t16.vType);
+      Assert.AreEqual(35.97, t16.AsDouble);
+      t16.SetJson("\"2014-04-15T01:23:45\"");
+      Topic.Process();
+      Assert.AreEqual(typeof(DateTime), t16.vType);
+      Assert.AreEqual(new DateTime(2014, 04, 15, 01, 23, 45), t16.AsDateTime);
+      t16.SetJson("\"Hello\"");
+      Topic.Process();
+      Assert.AreEqual(typeof(string), t16.vType);
+      Assert.AreEqual("Hello", t16.AsString);
+
+      var a=t16.Get("a");
+      a.SetJson("{\"$ref\":\"/t16/b\"}");
+      Topic.Process();
+      Topic b;
+      Assert.AreEqual(true, t16.Exist("b", out b));
+      Assert.AreEqual(typeof(Topic), a.vType);
+      Assert.AreEqual(b, a.AsRef);
+
+      b.SetJson("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":43,\"B\":9.81}");
+      Topic.Process();
+      var to=b.As<TestObj>();
+      Assert.IsNotNull(to);
+      Assert.AreEqual(typeof(TestObj), to.GetType());
+      Assert.AreEqual(43L, to.A);
+      Assert.AreEqual(9.81, to.B);
+    }
+    [TestMethod]
+    public void T17() {
+      Topic r=Topic.root.Get("/t17");
+      r.Set(false);
+      Topic.Process();
+      Assert.AreEqual("false", r.ToJson());
+
+      r.Set(34);
+      Topic.Process();
+      Assert.AreEqual("34", r.ToJson());
+
+      r.Set(28.09);
+      Topic.Process();
+      Assert.AreEqual("28.09", r.ToJson());
+
+      r.Set(new DateTime(2014, 05, 06, 23, 45, 56));
+      Topic.Process();
+      Assert.AreEqual("\"2014-05-06T23:45:56\"", r.ToJson());
+
+      r.Set("X13.HomeAutomation");
+      Topic.Process();
+      Assert.AreEqual("\"X13.HomeAutomation\"", r.ToJson());
+
+      var a=r.Get("a");
+      var b=r.Get("b");
+      a.Set(b);
+      Topic.Process();
+      Assert.AreEqual("{\"$ref\":\"/t17/b\"}", a.ToJson());
+
+      var to=new TestObj();
+      to.A=27;
+      to.B=3.1415;
+
+      r.Set(to);
+      Topic.Process();
+      Assert.AreEqual("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":27,\"B\":3.1415}", r.ToJson());
+    }
+
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
     //[TestMethod] public void T01() { }
+    //[TestMethod] public void T01() { }
+  }
+  public class TestObj {
+    public long A;
+    public double B;
   }
 }
