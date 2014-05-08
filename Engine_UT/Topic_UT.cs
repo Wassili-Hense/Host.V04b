@@ -63,6 +63,11 @@ namespace X13.Engine_UT {
       //Topic.Process();
       //root.ToJson();
     }
+    [TestInitialize()]
+    public void TestInitialize() {
+      Topic.Clear();
+      Topic.Process();
+    }
 
     private List<TopicCmd> cmds1;
     private void cmds1Fire(Topic t, TopicCmd c) {

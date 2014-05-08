@@ -1,18 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
+using X13.lib;
 
 namespace X13 {
   public class Engine {
     static void Main(string[] args) {
       string path=Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
       Directory.SetCurrentDirectory(path);
-      if(!Directory.Exists("../log")) {
-        Directory.CreateDirectory("../log");
-      }
       Log.Write+=new Action<LogLevel, DateTime, string>(Log_Write);
 
       Console.ForegroundColor=ConsoleColor.Green;
@@ -23,22 +19,23 @@ namespace X13 {
     }
 
     private static void Log_Write(LogLevel ll, DateTime dt, string msg) {
+      string dts=dt.ToString("HH:mm:ss.ff");
       switch(ll) {
       case LogLevel.Debug:
         Console.ForegroundColor=ConsoleColor.Gray;
-        Console.WriteLine(dt.ToString("HH:mm:ss.ff")+"[D] "+msg);
+        Console.WriteLine(dts+"[D] "+msg);
         break;
       case LogLevel.Info:
         Console.ForegroundColor=ConsoleColor.White;
-        Console.WriteLine(dt.ToString("HH:mm:ss.ff")+"[I] "+msg);
+        Console.WriteLine(dts+"[I] "+msg);
         break;
       case LogLevel.Warning:
         Console.ForegroundColor=ConsoleColor.Yellow;
-        Console.WriteLine(dt.ToString("HH:mm:ss.ff")+"[W] "+msg);
+        Console.WriteLine(dts+"[W] "+msg);
         break;
       case LogLevel.Error:
         Console.ForegroundColor=ConsoleColor.Red;
-        Console.WriteLine(dt.ToString("HH:mm:ss.ff")+"[E] "+msg);
+        Console.WriteLine(dts+"[E] "+msg);
         break;
       }
     }

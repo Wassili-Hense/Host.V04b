@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using X13.lib;
 
 namespace X13 {
   public sealed class Topic : IComparable<Topic> {
@@ -22,7 +23,7 @@ namespace X13 {
       _prTp=new Queue<TopicCmd>();
       _prOp=new SortedList<string, TopicCmd>();
       root=new Topic(null, "/");
-      _jser=JsonSerializer.Create(new JsonSerializerSettings() { DateFormatHandling=DateFormatHandling.IsoDateFormat, DateParseHandling=DateParseHandling.DateTime, MissingMemberHandling=MissingMemberHandling.Ignore, DefaultValueHandling=DefaultValueHandling.Include, NullValueHandling=NullValueHandling.Include, TypeNameHandling=TypeNameHandling.Objects, PreserveReferencesHandling=PreserveReferencesHandling.None});
+      _jser=JsonSerializer.Create(new JsonSerializerSettings() { DateFormatHandling=DateFormatHandling.IsoDateFormat, DateParseHandling=DateParseHandling.DateTime, MissingMemberHandling=MissingMemberHandling.Ignore, DefaultValueHandling=DefaultValueHandling.Include, NullValueHandling=NullValueHandling.Include, TypeNameHandling=TypeNameHandling.Objects, PreserveReferencesHandling=PreserveReferencesHandling.None });
       _jser.ReferenceResolver=new RefResolver();
       _busyFlag=1;
     }
@@ -169,11 +170,11 @@ namespace X13 {
             cmd.old_dt=cmd.src._dt;
             cmd.old_o=cmd.src._o;
             if(cmd.vt==VT.Json) {
-              string json=cmd.o as string;
-              if(string.IsNullOrEmpty(json)) {
+              cmd.src._json=cmd.o as string;
+              if(string.IsNullOrEmpty(cmd.src._json)) {
                 cmd.src._vt=VT.Undefined;
               } else {
-                using(JsonTextReader reader = new JsonTextReader(new StringReader(json))) {
+                using(JsonTextReader reader = new JsonTextReader(new StringReader(cmd.src._json))) {
                   if(reader.Read()) {
                     switch(reader.TokenType) {
                     case JsonToken.Boolean:
@@ -202,7 +203,7 @@ namespace X13 {
                       cmd.src._o=reader.Value;
                       break;
                     default:
-                      cmd.src._o=_jser.Deserialize(new JsonTextReader(new StringReader(json)));
+                      cmd.src._o=_jser.Deserialize(new JsonTextReader(new StringReader(cmd.src._json)));
                       if(cmd.src._o==null) {
                         cmd.src._vt=VT.Null;
                       } else if(cmd.src._o is Topic) {
@@ -219,6 +220,7 @@ namespace X13 {
               cmd.src._vt=cmd.vt;
               cmd.src._dt=cmd.dt;
               cmd.src._o=cmd.o;
+              cmd.src._json=null;
             }
             if(cmd.art==TopicCmd.Art.set) {
               cmd.art=TopicCmd.Art.changed;
@@ -226,7 +228,7 @@ namespace X13 {
           }
         }
         if(cmd.art==TopicCmd.Art.remove || cmd.art==TopicCmd.Art.move) {
-          cmd.src._disposed=1;
+          cmd.src._flags[2]=true;
           if(cmd.src.parent!=null) {
             cmd.src.parent._children.Remove(cmd.src.name);
           }
@@ -251,7 +253,7 @@ namespace X13 {
           }
         }
         if(cmd.art==TopicCmd.Art.changed || cmd.art==TopicCmd.Art.create) {
-          if(cmd.src._o!=null && cmd.src._disposed<1) {
+          if(cmd.src._o!=null && !cmd.src._flags[2]) {
             ITenant tt;
             Topic r;
             if(cmd.src._vt==VT.Ref && (r=cmd.src._o as Topic)!=null) {
@@ -264,8 +266,8 @@ namespace X13 {
         if(cmd.art!=TopicCmd.Art.set) {
           cmd.src.Publish(cmd);
         }
-        if(cmd.src._disposed==1) {
-          cmd.src._disposed=2;
+        if(cmd.src._flags[2]) {
+          cmd.src._flags[3]=true;
         }
       }
       _prOp.Clear();
@@ -278,20 +280,39 @@ namespace X13 {
       }
     }
 
+    public static void Clear() {
+      lock(root) {
+        _prIp.Clear();
+        _prTp.Clear();
+        _prOp.Clear();
+        foreach(var t in root.all) {
+          t._flags[2]=true;
+          if(t._children!=null) {
+            t._children.Clear();
+            t._children=null;
+          }
+        }
+        _busyFlag=1;
+      }
+    }
     #region variables
     private SortedList<string, Topic> _children;
     private List<SubRec> _subRecords;
     private Topic _parent;
     private string _name;
     private string _path;
-    private int _disposed;
+    /// <summary>[0] - saved, [1] - local, [2] - disposed, [3] - disposed fin. </summary>
+    private System.Collections.BitArray _flags;
 
     private VT _vt;
     private PriDT _dt;
     private object _o;
+    private string _json;
     #endregion variables
 
     private Topic(Topic parent, string name) {
+      _flags=new System.Collections.BitArray(5);
+      _flags[0]=true;  // saved
       _name=name;
       _parent=parent;
       _vt=VT.Undefined;
@@ -304,8 +325,8 @@ namespace X13 {
         _path="/"+name;
       } else {
         _path=parent.path+"/"+name;
+        _flags[1]=parent.local;
       }
-      _disposed=0;
     }
 
     public Topic parent {
@@ -343,7 +364,36 @@ namespace X13 {
     }
     public Bill all { get { return new Bill(this, true); } }
     public Bill children { get { return new Bill(this, false); } }
-    public bool disposed { get { return _disposed>0; } }
+    /// <summary>save value in persistent storage</summary>
+    public bool saved {
+      get { return _flags[0]; }
+      set {
+        if(_flags[0]!=value) {
+          _flags[0]=value;
+          var c=new TopicCmd(this, TopicCmd.Art.changed, null);
+          lock(root) {
+            _prIp.Enqueue(c);
+          }
+        }
+      }
+    }
+    /// <summary>only for this instance</summary>
+    public bool local { get { return _flags[1]; } set { _flags[1]=value; } }
+    /// <summary>removed</summary>
+    public bool disposed { get { return _flags[2]; } }
+    /// <summary>save value only in config file</summary>
+    public bool config {
+      get { return _flags[4]; }
+      set {
+        if(_flags[4]!=value) {
+          _flags[4]=value;
+          var c=new TopicCmd(this, TopicCmd.Art.changed, null);
+          lock(root) {
+            _prIp.Enqueue(c);
+          }
+        }
+      }
+    }
 
     /// <summary> Get item from tree</summary>
     /// <param name="path">relative or absolute path</param>
@@ -706,37 +756,45 @@ namespace X13 {
     }
     public Topic AsRef { get { return _vt==VT.Ref?(_o as Topic):null; } }
     public string ToJson() {
-      string json;
-      switch(_vt) {
-      case VT.Null:
-        json=JsonConvert.Null;
-        break;
-      case VT.Undefined:
-        json=JsonConvert.Undefined;
-        break;
-      case VT.Bool:
-        json=_dt.l==0?JsonConvert.False:JsonConvert.True;
-        break;
-      case VT.Integer:
-        json=_dt.l.ToString();
-        break;
-      case VT.Float:
-        json=JsonConvert.SerializeObject(_dt.d);
-        break;
-      case VT.DateTime:
-        json=JsonConvert.SerializeObject(_dt.dt);
-        break;
-      case VT.Ref:
-        json=string.Concat("{\"$ref\":\"",(_o as Topic).path ,"\"}");
-        break;
-      default:
-        using(var tw=new StringWriter()){
-          _jser.Serialize(tw, this.AsObject);
-          json=tw.ToString();
+      if(_json==null) {
+        lock(this) {
+          if(_json==null) {
+            switch(_vt) {
+            case VT.Null:
+              _json=JsonConvert.Null;
+              break;
+            case VT.Undefined:
+              _json=JsonConvert.Undefined;
+              break;
+            case VT.Bool:
+              _json=_dt.l==0?JsonConvert.False:JsonConvert.True;
+              break;
+            case VT.Integer:
+              _json=JsonConvert.ToString(_dt.l);
+              break;
+            case VT.Float:
+              _json=JsonConvert.ToString(_dt.d);
+              break;
+            case VT.DateTime:
+              _json=JsonConvert.ToString(_dt.dt);
+              break;
+            case VT.String:
+              _json=JsonConvert.ToString(_o as string);
+              break;
+            case VT.Ref:
+              _json=string.Concat("{\"$ref\":", JsonConvert.ToString((_o as Topic).path), "}");
+              break;
+            default:
+              using(var tw=new StringWriter()) {
+                _jser.Serialize(tw, this.AsObject);
+                _json=tw.ToString();
+              }
+              break;
+            }
+          }
         }
-        break;
       }
-      return json;
+      return _json;
     }
     public event Action<Topic, TopicCmd> changed {
       add {
@@ -1018,6 +1076,10 @@ namespace X13 {
       unsubscribe=7,
       move=2,
       remove=1
+    }
+
+    public bool Visited(Topic snd, bool add) {
+      return false;
     }
   }
 

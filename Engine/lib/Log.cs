@@ -10,11 +10,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace X13 {
+namespace X13.lib {
   public class Log {
+    static Log() {
+      if(!Directory.Exists("../log")) {
+        Directory.CreateDirectory("../log");
+      }
+    }
     public static void Debug(string format, params object[] arg) {
       onWrite(LogLevel.Debug, format, arg);
     }
