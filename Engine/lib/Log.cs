@@ -16,10 +16,15 @@ using System.Text;
 
 namespace X13.lib {
   public class Log {
+    private static bool _useDiagnostic;
+    private static bool _useConsole;
+
     static Log() {
       if(!Directory.Exists("../log")) {
         Directory.CreateDirectory("../log");
       }
+      _useDiagnostic=System.Diagnostics.Debugger.IsAttached;
+      _useConsole=Environment.UserInteractive;
     }
     public static void Debug(string format, params object[] arg) {
       onWrite(LogLevel.Debug, format, arg);
@@ -36,10 +41,35 @@ namespace X13.lib {
     public static void onWrite(LogLevel ll, string format, params object[] arg) {
       string msg=string.Format(format, arg);
       DateTime now=DateTime.Now;
-      if (Write!=null) {
+      if(Write!=null) {
         Write(ll, now, msg);
       }
-      System.Diagnostics.Debug.WriteLine(string.Format("{0}[{1}] {2}", now.ToString("HH:mm:ss.ff"), ll.ToString(), msg));
+      if(_useConsole || _useDiagnostic) {
+        string dts=now.ToString("HH:mm:ss.ff");
+        if(_useDiagnostic) {
+          System.Diagnostics.Debug.WriteLine(string.Format("{0}[{1}] {2}", dts, ll.ToString(), msg));
+        }
+        if(_useConsole) {
+          switch(ll) {
+          case LogLevel.Debug:
+            Console.ForegroundColor=ConsoleColor.Gray;
+            Console.WriteLine(dts+"[D] "+msg);
+            break;
+          case LogLevel.Info:
+            Console.ForegroundColor=ConsoleColor.White;
+            Console.WriteLine(dts+"[I] "+msg);
+            break;
+          case LogLevel.Warning:
+            Console.ForegroundColor=ConsoleColor.Yellow;
+            Console.WriteLine(dts+"[W] "+msg);
+            break;
+          case LogLevel.Error:
+            Console.ForegroundColor=ConsoleColor.Red;
+            Console.WriteLine(dts+"[E] "+msg);
+            break;
+          }
+        }
+      }
     }
     public static event Action<LogLevel, DateTime, string> Write;
   }

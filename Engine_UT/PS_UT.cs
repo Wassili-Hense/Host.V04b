@@ -46,6 +46,7 @@ namespace X13.Engine_UT {
       Assert.IsTrue(r.Exist("B", out r_b));
       Assert.AreEqual(192, r_a.AsLong);
       Assert.IsTrue(r_b.local);
+      ps.Stop();
     }
     //[TestMethod] public void PS_T01() { }
     //[TestMethod] public void PS_T01() { }
