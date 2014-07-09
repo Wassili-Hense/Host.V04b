@@ -53,7 +53,7 @@ namespace X13.plugin {
         Directory.CreateDirectory("../data");
       }
       _file=new FileStream("../data/persist.xdb", FileMode.OpenOrCreate, FileAccess.ReadWrite);
-      if(_file.Length<0x40) {
+      if(_file.Length<=0x40) {
         _file.Write(new byte[0x40], 0, 0x40);
         _file.Flush(true);
         _nextBak=DateTime.Now.AddHours(1);
@@ -63,7 +63,7 @@ namespace X13.plugin {
       _fileLength=_file.Length;
       _work=new AutoResetEvent(false);
       _thread=new Thread(new ThreadStart(PrThread));
-      _thread.Priority=ThreadPriority.Lowest;
+      _thread.Priority=ThreadPriority.BelowNormal;
       _now=DateTime.Now;
       if(_nextBak<_now) {
         Backup();
@@ -160,25 +160,23 @@ namespace X13.plugin {
       int freeCnt=0;
 
       do {
-        signal=_work.WaitOne(850);
+        _work.WaitOne(850);
         _now=DateTime.Now;
-        if(signal) {
-          while(_ch.TryDequeue(out tCh)) {
-            r=GetRecord(tCh);
-            if(r==null) {
-              continue;
-            }
-            r.modifyDT=_now;
-            if(r.pos!=0) {
-              for(var i=_recordsToSave.First; i!=null; i=i.Next) {
-                if(i.Value==r) {
-                  _recordsToSave.Remove(i);
-                  break;
-                }
+        while(_ch.TryDequeue(out tCh)) {
+          r=GetRecord(tCh);
+          if(r==null) {
+            continue;
+          }
+          r.modifyDT=_now;
+          if(r.pos!=0) {
+            for(var i=_recordsToSave.First; i!=null; i=i.Next) {
+              if(i.Value==r) {
+                _recordsToSave.Remove(i);
+                break;
               }
             }
-            _recordsToSave.AddLast(r);
           }
+          _recordsToSave.AddLast(r);
         }
         signal=false;
         thr=_now.AddMilliseconds(-2630);

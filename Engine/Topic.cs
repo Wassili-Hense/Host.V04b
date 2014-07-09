@@ -294,6 +294,7 @@ namespace X13 {
         }
         _busyFlag=1;
       }
+      root._flags[2]=false;
     }
     #region variables
     private SortedList<string, Topic> _children;

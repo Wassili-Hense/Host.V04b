@@ -28,7 +28,8 @@ namespace X13.Engine_UT {
       var r_b=r.Get("B");
       r_b.local=true;
       Topic.Process();
-      r_a.Set(383);
+      r_a.Set(192);
+      r_b.Set(true);
       Topic.Process();
       //Thread.Sleep(3000);
       ps.Stop();

@@ -18,7 +18,6 @@ namespace X13 {
       Timer tick=new Timer(TickPr, null, 0, 100);
       ps.Start();
 
-
       Console.ForegroundColor=ConsoleColor.Green;
       Console.WriteLine("Engine running; press Enter to Exit");
 
