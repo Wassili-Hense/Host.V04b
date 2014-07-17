@@ -53,6 +53,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="PLC_UT.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PS_UT.cs" />
     <Compile Include="Topic_UT.cs" />
