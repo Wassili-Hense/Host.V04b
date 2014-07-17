@@ -247,6 +247,7 @@ namespace X13 {
             ITenant it;
             if(cmd.old_vt==VT.Ref && (r=cmd.old_o as Topic)!=null) {
               r.Unsubscribe(r.path, cmd.src.RefChanged);
+              //TODO: X13.plugin.PLC.instance.DelVar(cmd.src);
             } else if(cmd.old_vt==VT.Object && (it=cmd.old_o as ITenant)!=null) {
               it.owner=null;
             }
@@ -258,6 +259,7 @@ namespace X13 {
             Topic r;
             if(cmd.src._vt==VT.Ref && (r=cmd.src._o as Topic)!=null) {
               r.Subscribe(new SubRec() { mask=r.path, ma=Bill.curArr, f=cmd.src.RefChanged });
+              X13.plugin.PLC.instance.GetVar(cmd.src);
             } else if(cmd.src._vt==VT.Object &&  (tt=cmd.src._o as ITenant)!=null) {
               tt.owner=cmd.src;
             }
