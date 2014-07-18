@@ -38,37 +38,57 @@ namespace X13.plugin {
         }
       }
       vQu=new Queue<PiVar>(_vars.Values.Where(z => z.gray==false));
-      while(vQu.Count>0) {
-        v1=vQu.Dequeue();
-        if(v1.layer==-1) {
-          v1.layer=0;
-          v1.calcPath=new PiBlock[0];
-        }
-        foreach(var l in v1._links.Where(z => z.input==v1)) {
-          l.layer=v1.layer;
-          l.output.layer=l.layer;
-          l.output.calcPath=v1.calcPath;
-          vQu.Enqueue(l.output);
-        }
-        if(v1.dir==false && v1.block!=null) {
-          if(v1.calcPath.Contains(v1.block)) {
-            X13.lib.Log.Debug("{0} make loop", v1._owner.path);
-            continue;
+      do {
+        while(vQu.Count>0) {
+          v1=vQu.Dequeue();
+          if(v1.layer==0) {
+            v1.layer=1;
+            v1.calcPath=new PiBlock[0];
           }
-          v1.block.layer=v1.block._pins.Where(z => z.dir==false).Max(z => z.layer)+1;
-          v1.block.calcPath=v1.block.calcPath.Union(v1.calcPath).ToArray();
-          foreach(var v3 in v1.block._pins.Where(z => z.dir==true)) {
-            v3.layer=v1.block.layer;
-            v3.calcPath=v1.block.calcPath;
+          foreach(var l in v1._links.Where(z => z.input==v1)) {
+            l.layer=v1.layer;
+            l.output.layer=l.layer;
+            l.output.calcPath=v1.calcPath;
+            vQu.Enqueue(l.output);
+          }
+          if(v1.dir==false && v1.block!=null) {
+            if(v1.calcPath.Contains(v1.block)) {
+              if(v1.layer>0) {
+                v1.layer=-v1.layer;
+              }
+              X13.lib.Log.Debug("{0} make loop", v1._owner.path);
+            } else if(v1.block._pins.Where(z => z.dir==false).All(z => z.layer>=0)) {
+              v1.block.layer=v1.block._pins.Where(z => z.dir==false).Max(z => z.layer)+1;
+              v1.block.calcPath=v1.block.calcPath.Union(v1.calcPath).ToArray();
+              foreach(var v3 in v1.block._pins.Where(z => z.dir==true)) {
+                v3.layer=v1.block.layer;
+                v3.calcPath=v1.block.calcPath;
+                if(!vQu.Contains(v3)) {
+                  vQu.Enqueue(v3);
+                }
+              }
+            }
+          }
+        }
+        if(vQu.Count==0 && _blocks.Any(z => z.layer==0)) { // find a loop in the graph
+          var bl=_blocks.Where(z => z.layer<0).Min();
+          foreach(var ip in bl._pins.Where(z => z.dir==false && z.layer>0)) {
+            bl.calcPath=bl.calcPath.Union(ip.calcPath).ToArray();
+          }
+          bl.layer=bl._pins.Where(z => z.dir==false && z.layer>0).Max(z => z.layer)+1;
+          foreach(var v3 in bl._pins.Where(z => z.dir==true)) {
+            v3.layer=bl.layer;
+            v3.calcPath=bl.calcPath;
             if(!vQu.Contains(v3)) {
               vQu.Enqueue(v3);
             }
           }
         }
-      }
-
+      } while(vQu.Count>0);
     }
     public void Stop() {
+      _blocks.Clear();
+      _vars.Clear();
     }
 
 
@@ -110,22 +130,23 @@ namespace X13.plugin {
     public PiVar(Topic src) {
       this._owner = src;
       _links=new List<PiLink>();
-      layer=-1;
+      layer=0;
     }
   }
 
   [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
-  public class PiBlock : ITenant {
+  public class PiBlock : ITenant, IComparable<PiBlock> {
     private Topic _owner;
     internal List<PiVar> _pins;
     internal PiBlock[] calcPath;
     private PDeclarer _decl;
+    public int layer;
 
     public PiBlock(string declarer) {
       this.declarer=declarer;
       _pins=new List<PiVar>();
-      calcPath=new PiBlock[]{this};
-      PLC.instance.AddBlock(this);
+      calcPath=new PiBlock[] { this };
+      layer=0;
     }
     public Topic owner {
       get {
@@ -139,6 +160,11 @@ namespace X13.plugin {
           _owner=value;
           if(_owner!=null) {
             _decl=PDeclarer.Get(declarer);
+            if(_decl==null) {
+              X13.lib.Log.Warning("{0}<{1}> - unknown declarer", this._owner.path, this.declarer);
+            }
+            PLC.instance.AddBlock(this);
+
             _owner.children.changed+=children_changed;
           }
         }
@@ -161,18 +187,19 @@ namespace X13.plugin {
         }
       }
     }
-    public int layer;
+
+    public int CompareTo(PiBlock other) {
+      int l1=layer<=0?(this._pins.Where(z1 => z1.dir==false && z1.layer>0).Max(z2 => z2.layer)):layer;
+      int l2=other==null?int.MaxValue:(other.layer<=0?(other._pins.Where(z1 => z1.dir==false && z1.layer>0).Max(z2 => z2.layer)):other.layer);
+      return l1.CompareTo(l2);
+    }
   }
 
   [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
   public class PDeclarer : ITenant {
-    private static Topic _droot;
-    static PDeclarer() {
-      _droot=Topic.root.Get("/etc/declarers", true);
-    }
     internal static PDeclarer Get(string d) {
       Topic t;
-      if(_droot.Exist(d, out t) && t.vType==typeof(PDeclarer)) {
+      if(Topic.root.Get("/etc/declarers", true).Exist(d, out t) && t.vType==typeof(PDeclarer)) {
         return t.As<PDeclarer>();
       }
       return null;
