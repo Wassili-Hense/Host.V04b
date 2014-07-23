@@ -28,10 +28,10 @@ namespace X13 {
     }
     private static void TickPr(object o) {
       try {
-        Topic.Process();
+        PLC.instance.Tick();
       }
       catch(Exception ex) {
-        Log.Warning("Topic.Process() - "+ex.ToString());
+        Log.Warning("PLC.instance.Tick() - "+ex.ToString());
       }
     }
   }

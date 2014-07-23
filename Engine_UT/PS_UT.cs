@@ -12,25 +12,25 @@ namespace X13.Engine_UT {
       if(File.Exists("../data/persist.xdb")) {
         File.Delete("../data/persist.xdb");
       }
-      Topic.Clear();
+      PLC.instance.Clear();
       Topic.root.Get("/etc/PersistentStorage/verbose").Set(false);
-      Topic.Process();
+      PLC.instance.Tick();
     }
 
     [TestMethod]
     public void PS_T01() {
       PersistentStorage ps=new PersistentStorage();
       ps.Init();
-      Topic.Process();
+      PLC.instance.Tick();
       ps.Start();
       var r=Topic.root.Get("/PS_UT/T01");
       var r_a=r.Get("A");
       var r_b=r.Get("B");
       r_b.local=true;
-      Topic.Process();
+      PLC.instance.Tick();
       r_a.Set(192);
       r_b.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       //Thread.Sleep(3000);
       ps.Stop();
     }
@@ -39,7 +39,7 @@ namespace X13.Engine_UT {
       File.Copy("../data/T02.xdb", "../data/persist.xdb");
       PersistentStorage ps=new PersistentStorage();
       ps.Init();
-      Topic.Process();
+      PLC.instance.Tick();
       ps.Start();
       Topic r, r_a, r_b;
       Assert.IsTrue(Topic.root.Exist("/PS_UT/T02", out r));

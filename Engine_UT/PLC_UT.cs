@@ -7,8 +7,8 @@ namespace X13.Engine_UT {
   public class PLC_UT {
     [TestInitialize()]
     public void TestInitialize() {
-      Topic.Clear();
-      Topic.Process();
+      PLC.instance.Clear();
+      PLC.instance.Tick();
     }
 
     [TestMethod]
@@ -33,8 +33,8 @@ namespace X13.Engine_UT {
 
       plc.Init();
 
-      Topic.Process();
-      Topic.Process();
+      PLC.instance.Tick();
+      PLC.instance.Tick();
 
       plc.Start();
       Assert.AreEqual(2, A01.As<PiBlock>().layer);
@@ -71,8 +71,8 @@ namespace X13.Engine_UT {
 
       plc.Init();
 
-      Topic.Process();
-      Topic.Process();
+      PLC.instance.Tick();
+      PLC.instance.Tick();
 
       plc.Start();
       Assert.AreEqual(2, A01.As<PiBlock>().layer);
@@ -104,8 +104,8 @@ namespace X13.Engine_UT {
 
       plc.Init();
 
-      Topic.Process();
-      Topic.Process();
+      PLC.instance.Tick();
+      PLC.instance.Tick();
 
       plc.Start();
       Assert.AreEqual(2, A01.As<PiBlock>().layer);

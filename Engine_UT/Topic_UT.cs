@@ -3,6 +3,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using X13.plugin;
 
 namespace X13.Engine_UT {
   /// <summary>
@@ -60,17 +61,17 @@ namespace X13.Engine_UT {
       r=new Random((int)DateTime.Now.Ticks);
       root=Topic.root;
       //root.SetJson("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":315,\"B\":0.41}");
-      //Topic.Process();
+      //PLC.instance.Tick();
       //root.ToJson();
     }
     [TestInitialize()]
     public void TestInitialize() {
-      Topic.Clear();
-      Topic.Process();
+      PLC.instance.Clear();
+      PLC.instance.Tick();
     }
 
-    private List<TopicCmd> cmds1;
-    private void cmds1Fire(Topic t, TopicCmd c) {
+    private List<Perform> cmds1;
+    private void cmds1Fire(Topic t, Perform c) {
       cmds1.Add(c);
     }
 
@@ -86,7 +87,7 @@ namespace X13.Engine_UT {
       Topic A1=root.Get("A1");
       long val=r.Next();
       A1.Set(val);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A1.AsLong);
     }
     [TestMethod]
@@ -96,25 +97,25 @@ namespace X13.Engine_UT {
       A1.Set(val);
       Topic A2=root.Get("/A2");
       A2.Set(A1);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A2.AsLong);
 
       val=r.Next();
       A1.Set(val);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A2.AsLong);
 
       var now=DateTime.Now;
       A2.Set(now);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(now, A1.AsDateTime);
 
       A2.Set(null);   // reset reference
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(null, A2.AsObject);
 
       A2.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(now, A1.AsDateTime);
       Assert.AreEqual(true, A2.AsObject);
     }
@@ -122,75 +123,75 @@ namespace X13.Engine_UT {
     public void T04() {   // parse to bool
       Topic A1=root.Get("A1");
       A1.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, A1.AsBool);
       A1.Set(false);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(false, A1.AsBool);
       A1.Set((object)true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, A1.AsBool);
       A1.Set(0);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(false, A1.AsBool);
       A1.Set(r.Next(1, int.MaxValue));
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, A1.AsBool);
       A1.Set("false");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(false, A1.AsBool);
       A1.Set("True");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, A1.AsBool);
     }
     [TestMethod]
     public void T05() {   // parse to long
       Topic A1=root.Get("A1");
       A1.Set((object)257);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(257, A1.AsLong);
       A1.Set(25.7);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(25, A1.AsLong);
       A1.Set("94");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(94, A1.AsLong);
       A1.Set("0x15");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(0, A1.AsLong);
       A1.Set("17.6");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(17, A1.AsLong);
       A1.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, A1.AsLong);
       A1.Set(new DateTime(917L));
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(917, A1.AsLong);
     }
     [TestMethod]
     public void T06() {   // parse to double
       Topic A1=root.Get("A1");
       A1.Set((object)257.158);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(257.158, A1.AsDouble);
       A1.Set(52);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(52.0, A1.AsDouble);
       A1.Set("913");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(913.0, A1.AsDouble);
       A1.Set("0x15");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(0.0, A1.AsDouble);
       A1.Set("294.3187");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(294.3187, A1.AsDouble);
       A1.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1.0, A1.AsDouble);
       A1.Set(DateTime.FromOADate(1638.324));
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1638.324, A1.AsDouble);
     }
     [TestMethod]
@@ -198,11 +199,11 @@ namespace X13.Engine_UT {
       Topic A3=root.Get("A3");
       long val=r.Next();
       A3.Set(val);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A3.AsLong);
       A3.Remove();
       A3.Set(Math.PI);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, A3.disposed);
       Assert.AreEqual(null, A3.AsObject);
     }
@@ -231,22 +232,22 @@ namespace X13.Engine_UT {
     [TestMethod]
     public void T09() {
       Topic t0=root.Get("child1");
-      cmds1=new List<TopicCmd>();
-      Topic.Process();
+      cmds1=new List<Perform>();
+      PLC.instance.Tick();
       t0.changed+=cmds1Fire;
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(t0, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.subscribe, cmds1[0].art);
       cmds1.Clear();
       var t1=t0.Get("ch_a");
       t1.Set("Hi");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(0, cmds1.Count);
       cmds1.Clear();
       t0.changed-=cmds1Fire;
       t0.Set(2.98);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(0, cmds1.Count);
       cmds1.Clear();
     }
@@ -256,18 +257,21 @@ namespace X13.Engine_UT {
       long val=r.Next();
       A1.Set(val);
       Topic A2=root.Get("/A2");
-      cmds1=new List<TopicCmd>();
+      cmds1=new List<Perform>();
       A2.changed+=cmds1Fire;
       A2.Set(A1);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A2.AsLong);
-      Assert.AreEqual(1, cmds1.Count);
+      Assert.AreEqual(2, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
+      Assert.AreEqual(Perform.Art.create, cmds1[0].art);
+      Assert.AreEqual(A2, cmds1[1].src);
+      Assert.AreEqual(Perform.Art.changed, cmds1[1].art);
       cmds1.Clear();
 
       val=r.Next();
       A1.Set(val);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A2.AsLong);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A1, cmds1[0].src);
@@ -275,21 +279,21 @@ namespace X13.Engine_UT {
 
       var now=DateTime.Now;
       A2.Set(now);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(now, A1.AsDateTime);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A1, cmds1[0].src);
       cmds1.Clear();
 
       A2.Set(null);   // reset reference
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(null, A2.AsObject);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
       cmds1.Clear();
 
       A2.Set(true);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(now, A1.AsDateTime);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
@@ -297,7 +301,7 @@ namespace X13.Engine_UT {
 
       val=r.Next();
       A1.Set(val);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(val, A1.AsLong);
       Assert.AreEqual(0, cmds1.Count);
       cmds1.Clear();
@@ -307,31 +311,31 @@ namespace X13.Engine_UT {
       Topic t0=root.Get("child2");
       var t1=t0.Get("ch_a");
       var t1_a=t1.Get("a");
-      cmds1=new List<TopicCmd>();
-      Topic.Process();
+      cmds1=new List<Perform>();
+      PLC.instance.Tick();
       t0.children.changed+=cmds1Fire;
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.subscribe, cmds1[0].art);
       Assert.AreEqual(t1, cmds1[0].src);
       cmds1.Clear();
 
       t1.Set("Hi");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
       Assert.AreEqual(t1, cmds1[0].src);
       cmds1.Clear();
 
       var t2=t0.Get("ch_b");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[0].art);
       Assert.AreEqual(t2, cmds1[0].src);
       cmds1.Clear();
 
       var t2_a=t2.Get("a");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(0, cmds1.Count);
       cmds1.Clear();
     }
@@ -340,54 +344,54 @@ namespace X13.Engine_UT {
       Topic t0=root.Get("child3");
       var t1=t0.Get("ch_a");
       var t1_a=t1.Get("a");
-      cmds1=new List<TopicCmd>();
-      Topic.Process();
+      cmds1=new List<Perform>();
+      PLC.instance.Tick();
       t0.all.changed+=cmds1Fire;
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(3, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.subscribe, cmds1[0].art);
       Assert.AreEqual(t0, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[1].art);
+      Assert.AreEqual(Perform.Art.subscribe, cmds1[1].art);
       Assert.AreEqual(t1, cmds1[1].src);
-      Assert.AreEqual(TopicCmd.Art.subscribe, cmds1[2].art);
+      Assert.AreEqual(Perform.Art.subscribe, cmds1[2].art);
       Assert.AreEqual(t1_a, cmds1[2].src);
       cmds1.Clear();
 
       t1.Set("Hi");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
       Assert.AreEqual(t1, cmds1[0].src);
       cmds1.Clear();
 
       var t2=t0.Get("ch_b");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[0].art);
       Assert.AreEqual(t2, cmds1[0].src);
       cmds1.Clear();
 
       var t2_a=t2.Get("a");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(1, cmds1.Count);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[0].art);
       Assert.AreEqual(t2_a, cmds1[0].src);
       cmds1.Clear();
     }
     [TestMethod]
     public void T13() {
       var b1=root.Get("B1");
-      Topic.Process();
+      PLC.instance.Tick();
       b1.Remove();
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.IsTrue(b1.disposed);
       Assert.IsFalse(root.Exist("B1"));
       b1=null;
       var b2=root.Get("B2");
       var b2_a=b2.Get("A");
-      Topic.Process();
+      PLC.instance.Tick();
       b2.Remove();
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.IsTrue(b2.disposed);
       Assert.IsFalse(root.Exist("B2"));
       Assert.IsTrue(b2_a.disposed);
@@ -396,17 +400,17 @@ namespace X13.Engine_UT {
     }
     [TestMethod]
     public void T14() {
-      cmds1=new List<TopicCmd>();
+      cmds1=new List<Perform>();
 
       var b3=root.Get("B3");
-      Topic.Process();
+      PLC.instance.Tick();
       b3.all.changed+=cmds1Fire;
       b3.Set(91.02);
-      Topic.Process();
+      PLC.instance.Tick();
       cmds1.Clear();
 
       var c3=b3.Move(root, "C3");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, b3.disposed);
       Assert.AreEqual(false, root.Exist("B3"));
       Assert.AreNotEqual(b3, c3);
@@ -414,18 +418,18 @@ namespace X13.Engine_UT {
       Assert.AreEqual(91.02, c3.AsDouble);
       Assert.AreEqual(2, cmds1.Count);
       Assert.AreEqual(b3, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.move, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.move, cmds1[0].art);
       Assert.AreEqual(c3, cmds1[1].src);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[1].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[1].art);
       cmds1.Clear();
 
       var c3_a=c3.Get("A");
       c3_a.Set(9577);
-      Topic.Process();
+      PLC.instance.Tick();
       cmds1.Clear();
 
       var d3=c3.Move(root, "D3");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(true, c3.disposed);
       Assert.AreEqual(false, root.Exist("C3"));
       Assert.AreNotEqual(c3, d3);
@@ -436,23 +440,23 @@ namespace X13.Engine_UT {
       Assert.AreEqual(9577, c3_a.AsLong);
       Assert.AreEqual(3, cmds1.Count);
       Assert.AreEqual(c3, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.move, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.move, cmds1[0].art);
       Assert.AreEqual(d3, cmds1[1].src);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[1].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[1].art);
       Assert.AreEqual(c3_a, cmds1[2].src);
-      Assert.AreEqual(TopicCmd.Art.create, cmds1[2].art);
+      Assert.AreEqual(Perform.Art.create, cmds1[2].art);
       cmds1.Clear();
 
       d3.Set(17);
       var e3=d3.Move(root, "e3");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(17, e3.AsLong);
       cmds1.Clear();
 
     }
     [TestMethod]
     public void T15() {
-      cmds1=new List<TopicCmd>();
+      cmds1=new List<Perform>();
 
       var r=Topic.root.Get("t15");
       var a1=r.Get("a1");
@@ -460,71 +464,71 @@ namespace X13.Engine_UT {
       a1.Set(13);
       a2.Set(a1);
       a2.changed+=cmds1Fire;
-      Topic.Process();
+      PLC.instance.Tick();
       cmds1.Clear();
 
       Assert.AreEqual(13, a2.AsLong);
       var b1=a1.Move(r, "b1");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(b1, a2.AsRef);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(a2, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
       cmds1.Clear();
 
       b1.Set(15);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(15, a2.AsLong);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(b1, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
       cmds1.Clear();
 
       b1.Remove();
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(null, a2.AsRef);
       Assert.AreEqual(15, a2.AsLong);
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(a2, cmds1[0].src);
-      Assert.AreEqual(TopicCmd.Art.changed, cmds1[0].art);
+      Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
       cmds1.Clear();
 
     }
     [TestMethod]
     public void T16() {
       Topic t16=Topic.root.Get("/t16");
-      Topic.Process();
+      PLC.instance.Tick();
       t16.SetJson("true");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(typeof(bool), t16.vType);
       Assert.AreEqual(true, t16.AsBool);
       t16.SetJson("137");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(typeof(long), t16.vType);
       Assert.AreEqual(137, t16.AsLong);
       t16.SetJson("35.97");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(typeof(double), t16.vType);
       Assert.AreEqual(35.97, t16.AsDouble);
       t16.SetJson("\"2014-04-15T01:23:45\"");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(typeof(DateTime), t16.vType);
       Assert.AreEqual(new DateTime(2014, 04, 15, 01, 23, 45), t16.AsDateTime);
       t16.SetJson("\"Hello\"");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual(typeof(string), t16.vType);
       Assert.AreEqual("Hello", t16.AsString);
 
       var a=t16.Get("a");
       a.SetJson("{\"$ref\":\"/t16/b\"}");
-      Topic.Process();
+      PLC.instance.Tick();
       Topic b;
       Assert.AreEqual(true, t16.Exist("b", out b));
       Assert.AreEqual(typeof(Topic), a.vType);
       Assert.AreEqual(b, a.AsRef);
 
       b.SetJson("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":43,\"B\":9.81}");
-      Topic.Process();
+      PLC.instance.Tick();
       var to=b.As<TestObj>();
       Assert.IsNotNull(to);
       Assert.AreEqual(typeof(TestObj), to.GetType());
@@ -535,29 +539,29 @@ namespace X13.Engine_UT {
     public void T17() {
       Topic r=Topic.root.Get("/t17");
       r.Set(false);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("false", r.ToJson());
 
       r.Set(34);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("34", r.ToJson());
 
       r.Set(28.09);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("28.09", r.ToJson());
 
       r.Set(new DateTime(2014, 05, 06, 23, 45, 56));
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("\"2014-05-06T23:45:56\"", r.ToJson());
 
       r.Set("X13.HomeAutomation");
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("\"X13.HomeAutomation\"", r.ToJson());
 
       var a=r.Get("a");
       var b=r.Get("b");
       a.Set(b);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("{\"$ref\":\"/t17/b\"}", a.ToJson());
 
       var to=new TestObj();
@@ -565,7 +569,7 @@ namespace X13.Engine_UT {
       to.B=3.1415;
 
       r.Set(to);
-      Topic.Process();
+      PLC.instance.Tick();
       Assert.AreEqual("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":27,\"B\":3.1415}", r.ToJson());
     }
 

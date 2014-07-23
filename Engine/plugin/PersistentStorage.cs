@@ -139,12 +139,12 @@ namespace X13.plugin {
       }
       _refitParent=null;
     }
-    private void MqChanged(Topic sender, TopicCmd cmd) {
-      if(sender==null || cmd.Visited(_sign, true)) {
+    private void MqChanged(Topic sender, Perform cmd) {
+      if(sender==null || cmd.prim==_sign) {
         return;
       }
       _ch.Enqueue(sender);
-      if(cmd.art!=TopicCmd.Art.create && cmd.art!=TopicCmd.Art.subscribe) {
+      if(cmd.art!=Perform.Art.create && cmd.art!=Perform.Art.subscribe) {
         _work.Set();
       }
     }
