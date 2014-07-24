@@ -13,10 +13,13 @@ namespace X13 {
       Directory.SetCurrentDirectory(path);
 
       PersistentStorage ps=new PersistentStorage();
+      PLC plc=PLC.instance;
       ps.Init();
+      plc.Init();
 
       Timer tick=new Timer(TickPr, null, 0, 100);
       ps.Start();
+      plc.Start();
 
       Console.ForegroundColor=ConsoleColor.Green;
       Console.WriteLine("Engine running; press Enter to Exit");
@@ -24,6 +27,7 @@ namespace X13 {
       Console.Read();
       Console.ForegroundColor=ConsoleColor.Gray;
       ps.Stop();
+      plc.Stop();
       tick.Change(Timeout.Infinite, Timeout.Infinite);
     }
     private static void TickPr(object o) {

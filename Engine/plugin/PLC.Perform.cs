@@ -9,10 +9,10 @@ namespace X13.plugin {
 
     static Perform() {
       //create=1,         1
-      //set=2,            2
-      //changed=3,        2
-      //subscribe=4,      2  
-      //unsubscribe=5,    2
+      //subscribe=2,      2  
+      //unsubscribe=3,    2
+      //set=4,            2
+      //changed=5,        2
       //move=6,           3
       //remove=7          3
       _prio=new int[] { 0, 1, 2, 2, 2, 2, 3, 3 };

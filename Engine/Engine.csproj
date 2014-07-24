@@ -52,6 +52,7 @@
     <Compile Include="Engine.cs" />
     <Compile Include="lib\crc16.cs" />
     <Compile Include="lib\Log.cs" />
+    <Compile Include="plugin\PLC.Items.cs" />
     <Compile Include="plugin\PLC.Perform.cs" />
     <Compile Include="plugin\PersistentStorage.cs" />
     <Compile Include="plugin\PLC.cs" />

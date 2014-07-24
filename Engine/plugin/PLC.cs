@@ -17,10 +17,15 @@ namespace X13.plugin {
     private ConcurrentQueue<Perform> _tcQueue;
     private List<Perform>  _prOp;
     private int _busyFlag;
+    private Topic _sign1;
+    private Topic _sign2;
+    private bool  _signFl;
+    private int _pfPos;
 
     private List<PiBlock> _blocks;
     private Dictionary<Topic, PiVar> _vars;
-    public Topic sign { get; private set; }
+    public Topic sign { get { return _signFl?_sign1:_sign2; } }
+    internal Topic signAlt { get { return _signFl?_sign2:_sign1; } }
 
     public PLC() {
       _blocks=new List<PiBlock>();
@@ -32,7 +37,8 @@ namespace X13.plugin {
 
     }
     public void Init() {
-      sign=Topic.root.Get("/etc/plugins/PLC");
+      _sign1=Topic.root.Get("/etc/plugins/PLC/sign1");
+      _sign2=Topic.root.Get("/etc/plugins/PLC/sign2");
     }
     public void Start() {
       Queue<PiVar> vQu=new Queue<PiVar>(_vars.Values);
@@ -73,10 +79,10 @@ namespace X13.plugin {
                 v1.layer=-v1.layer;
               }
               X13.lib.Log.Debug("{0} make loop", v1._owner.path);
-            } else if(v1.block._pins.Where(z => z.dir==false).All(z => z.layer>=0)) {
-              v1.block.layer=v1.block._pins.Where(z => z.dir==false).Max(z => z.layer)+1;
+            } else if(v1.block._pins.Where(z => z.Value.dir==false).All(z => z.Value.layer>=0)) {
+              v1.block.layer=v1.block._pins.Where(z => z.Value.dir==false).Max(z => z.Value.layer)+1;
               v1.block.calcPath=v1.block.calcPath.Union(v1.calcPath).ToArray();
-              foreach(var v3 in v1.block._pins.Where(z => z.dir==true)) {
+              foreach(var v3 in v1.block._pins.Where(z => z.Value.dir==true).Select(z => z.Value)) {
                 v3.layer=v1.block.layer;
                 v3.calcPath=v1.block.calcPath;
                 if(!vQu.Contains(v3)) {
@@ -88,11 +94,11 @@ namespace X13.plugin {
         }
         if(vQu.Count==0 && _blocks.Any(z => z.layer==0)) { // break a one loop in the graph
           var bl=_blocks.Where(z => z.layer<0).Min();
-          foreach(var ip in bl._pins.Where(z => z.dir==false && z.layer>0)) {
+          foreach(var ip in bl._pins.Select(z => z.Value).Where(z => z.dir==false && z.layer>0)) {
             bl.calcPath=bl.calcPath.Union(ip.calcPath).ToArray();
           }
-          bl.layer=bl._pins.Where(z => z.dir==false && z.layer>0).Max(z => z.layer)+1;
-          foreach(var v3 in bl._pins.Where(z => z.dir==true)) {
+          bl.layer=bl._pins.Select(z => z.Value).Where(z => z.dir==false && z.layer>0).Max(z => z.layer)+1;
+          foreach(var v3 in bl._pins.Select(z => z.Value).Where(z => z.dir==true)) {
             v3.layer=bl.layer;
             v3.calcPath=bl.calcPath;
             if(!vQu.Contains(v3)) {
@@ -108,7 +114,6 @@ namespace X13.plugin {
     }
 
     public void Tick() {
-
       if(Interlocked.CompareExchange(ref _busyFlag, 2, 1)!=1) {
         return;
       }
@@ -216,7 +221,7 @@ namespace X13.plugin {
             }
 
             int idx=EnquePerf(c);
-            if(idx>0){
+            if(idx>0) {
               Perform c1=_prOp[idx-1];
               if(c1.src==c.src && c1.art==Perform.Art.set) {
                 EnquePerf(new Perform(t, Perform.Art.set, c1.prim) { vt=c1.vt, dt=c1.dt, o=c1.o });
@@ -231,8 +236,8 @@ namespace X13.plugin {
         }
       }
 
-      for(int pfPos=0; pfPos<_prOp.Count; pfPos++) {
-        var cmd=_prOp[pfPos];
+      for(_pfPos=0; _pfPos<_prOp.Count; _pfPos++) {
+        var cmd=_prOp[_pfPos];
         if(cmd.art==Perform.Art.set || cmd.art==Perform.Art.remove) {
           if(cmd.art!=Perform.Art.set 
         || cmd.src._vt!=cmd.vt 
@@ -314,8 +319,8 @@ namespace X13.plugin {
         }*/
       }
 
-      for(int pfPos=0; pfPos<_prOp.Count; pfPos++) {
-        var cmd=_prOp[pfPos];
+      for(_pfPos=0; _pfPos<_prOp.Count; _pfPos++) {
+        var cmd=_prOp[_pfPos];
         if(cmd.art==Perform.Art.changed || cmd.art==Perform.Art.remove) {
           if(cmd.old_o!=null) {
             Topic r;
@@ -348,6 +353,7 @@ namespace X13.plugin {
         }
       }
       _prOp.Clear();
+      _signFl=!_signFl;
       _busyFlag=1;
     }
     public void Clear() {
@@ -370,7 +376,8 @@ namespace X13.plugin {
     internal void DoCmd(Perform cmd) {
       _tcQueue.Enqueue(cmd);
     }
-    private int EnquePerf(Perform cmd) {
+
+    internal int EnquePerf(Perform cmd) {
       int idx=_prOp.BinarySearch(cmd);
       if(idx<0) {
         idx=~idx;
@@ -385,7 +392,54 @@ namespace X13.plugin {
       }
       return idx;
     }
+    internal void DoPlcCmd(Topic dst, Topic.VT vt, object o, Topic.PriDT dt) {
+      if(dst._vt==vt) {
+        switch(vt) {
+        case Topic.VT.Float:
+          if(dst._dt.d==dt.d) {
+            return;
+          }
+          break;
+        }
+      }
+      Perform cmd=new Perform(dst, Perform.Art.changed, PLC.instance.signAlt) { dt=dt, o=o, vt=vt };
+      int idx=_prOp.BinarySearch(cmd);
 
+      if(idx<0) {
+        idx=~idx;
+        if(idx<=_pfPos) {
+          cmd=new Perform(dst, Perform.Art.set, sign) { dt=dt, o=o, vt=vt };
+          DoCmd(cmd);
+          return;
+        }
+        _prOp.Insert(idx, cmd);
+        dst._json=null;
+        cmd.old_vt=dst._vt;
+        cmd.old_dt=dst._dt;
+        cmd.old_o=dst._o;
+      } else {
+        if(idx>=_pfPos) {
+          cmd=new Perform(dst, Perform.Art.set, sign) { dt=dt, o=o, vt=vt };
+          DoCmd(cmd);
+          return;
+        }
+        var oCmd=_prOp[idx];
+        if(oCmd.art==Perform.Art.changed) {
+          cmd.old_vt=oCmd.old_vt;
+          cmd.old_dt=oCmd.old_dt;
+          cmd.old_o=oCmd.old_o;
+        } else {
+          dst._json=null;
+          cmd.old_vt=dst._vt;
+          cmd.old_dt=dst._dt;
+          cmd.old_o=dst._o;
+        }
+        _prOp[idx]=cmd;
+      }
+      dst._vt=cmd.vt;
+      dst._dt=cmd.dt;
+      dst._o=cmd.o;
+    }
     internal void AddBlock(PiBlock bl) {
       _blocks.Add(bl);
     }
@@ -402,170 +456,4 @@ namespace X13.plugin {
       return v;
     }
   }
-
-  internal class PiLink {
-    public PiVar input;
-    public PiVar output;
-    public int layer;
-
-    public PiLink(PiVar ip, PiVar op) {
-      input=ip;
-      output=op;
-    }
-  }
-
-  internal class PiVar {
-    internal Topic _owner;
-    internal List<PiLink> _links;
-    internal PiBlock[] calcPath;
-    public PiBlock block;
-
-    /// <summary>false - input, true - output, null - io</summary>
-    public bool? dir { get { return pi==null?null:(bool?)pi.dir; } }
-    public int layer;
-    public   PinInfo pi;
-    public bool gray;
-
-    public PiVar(Topic src) {
-      this._owner = src;
-      _links=new List<PiLink>();
-      layer=0;
-    }
-
-    public void Set(double r) {
-
-    }
-  }
-
-  [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
-  public class PiBlock : ITenant, IComparable<PiBlock> {
-    private Topic _owner;
-    internal List<PiVar> _pins;
-    internal PiBlock[] calcPath;
-    private PDeclarer _decl;
-    public int layer;
-
-    public PiBlock(string declarer) {
-      this.declarer=declarer;
-      _pins=new List<PiVar>();
-      calcPath=new PiBlock[] { this };
-      layer=0;
-    }
-    public Topic owner {
-      get {
-        return _owner;
-      }
-      set {
-        if(_owner!=value) {
-          if(_owner!=null) {
-            _owner.children.changed-=children_changed;
-          }
-          _owner=value;
-          if(_owner!=null) {
-            _decl=PDeclarer.Get(declarer);
-            if(_decl==null) {
-              X13.lib.Log.Warning("{0}<{1}> - unknown declarer", this._owner.path, this.declarer);
-            }
-            PLC.instance.AddBlock(this);
-
-            _owner.children.changed+=children_changed;
-          }
-        }
-      }
-    }
-    [Newtonsoft.Json.JsonProperty]
-    public string declarer { get; private set; }
-
-    private void children_changed(Topic src, Perform p) {
-      if(p.art==Perform.Art.create || p.art==Perform.Art.subscribe) {
-        if(_decl==null) {
-          return;
-        }
-        PinInfo pi;
-        if(_decl.ExistPin(src.name, out pi)) {
-          var pin=PLC.instance.GetVar(src, true);
-          pin.pi=pi;
-          pin.block=this;
-          _pins.Add(pin);
-        }
-      } else if(p.art==Perform.Art.changed) {
-        if(p.prim!=PLC.instance.sign) {
-          Calculate();
-        }
-      }
-    }
-    private void Calculate() {
-      // ADD
-      double r=_pins.First(z => z._owner.name=="A")._owner.AsDouble+_pins.First(z => z._owner.name=="B")._owner.AsDouble;
-      _pins.First(z => z._owner.name=="Q").Set(r);
-    }
-
-    public int CompareTo(PiBlock other) {
-      int l1=this.layer<=0?(this._pins.Where(z1 => z1.dir==false && z1.layer>0).Max(z2 => z2.layer)):this.layer;
-      int l2=other==null?int.MaxValue:(other.layer<=0?(other._pins.Where(z1 => z1.dir==false && z1.layer>0).Max(z2 => z2.layer)):other.layer);
-      return l1.CompareTo(l2);
-    }
-  }
-
-  [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
-  public class PDeclarer : ITenant {
-    internal static PDeclarer Get(string d) {
-      Topic t;
-      if(Topic.root.Get("/etc/declarers", true).Exist(d, out t) && t.vType==typeof(PDeclarer)) {
-        return t.As<PDeclarer>();
-      }
-      return null;
-    }
-
-    private Topic _owner;
-    public Topic owner {
-      get {
-        return _owner;
-      }
-      set {
-        if(_owner!=value) {
-          if(_owner!=null) {
-            _owner.children.changed-=children_changed;
-          }
-          _owner=value;
-          if(_owner!=null) {
-            _owner.children.changed+=children_changed;
-          }
-        }
-      }
-    }
-    [Newtonsoft.Json.JsonProperty]
-    private string info { get; set; }
-    private void children_changed(Topic src, Perform p) {
-    }
-
-    public bool ExistPin(string name, out PinInfo pi) {
-      Topic t;
-      if(_owner.Exist(name, out t) && t.vType==typeof(PinInfo)) {
-        pi=t.As<PinInfo>();
-        return true;
-      }
-      pi=null;
-      return false;
-    }
-  }
-
-  [Newtonsoft.Json.JsonObject(Newtonsoft.Json.MemberSerialization.OptIn)]
-  public class PinInfo {
-    [Newtonsoft.Json.JsonProperty]
-    public bool dir { get; set; }
-  }
-
-  /*
-  public class PiGroup : PiBlock {
-    private List<PiBlock> _blocks;
-
-    public PiGroup()
-      : base("schema") {
-        _blocks=new List<PiBlock>();
-    }
-    protected override void children_changed(Topic src, Perform p) {
-      base.children_changed(src, p);
-    }
-  }*/
 }
