@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using X13.plugin;
+using System.Diagnostics;
 
 namespace X13.Engine_UT {
   [TestClass]
@@ -135,5 +136,29 @@ namespace X13.Engine_UT {
 
       plc.Stop();
     }
+    [TestMethod]
+    public void T05() {
+      var c1=new PiConst(15);
+      Assert.AreEqual(15, c1.As<long>());
+
+      //var o1=c1.As<object>();
+      GC.Collect();
+      GC.Collect();
+      long mem1=GC.GetTotalMemory(true);
+      long value = 0;
+      value = c1.As<long>();
+      var watch = Stopwatch.StartNew();
+
+      for(long i = 0; i < 10000000; i++) {
+        c1.Set(i);
+        value+= c1.As<long>();
+      }
+
+      watch.Stop();
+      long mem2=GC.GetTotalMemory(false);
+
+      System.IO.File.AppendAllText("PLC_UT_T05.log", watch.Elapsed.TotalMilliseconds.ToString()+"\t"+(mem2-mem1).ToString()+"/"+mem2.ToString()+"\r\n");
+    }
+
   }
 }

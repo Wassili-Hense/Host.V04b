@@ -26,7 +26,7 @@ namespace X13 {
     internal Topic _parent;
     internal string _name;
     internal string _path;
-    /// <summary>[0] - saved, [1] - local, [2] - disposed, [3] - disposed fin. </summary>
+    /// <summary>[0] - saved, [1] - local, [2] - disposed, [3] - disposed fin., [4] - config </summary>
     internal System.Collections.BitArray _flags;
 
     internal VT _vt;

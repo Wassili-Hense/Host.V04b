@@ -2,18 +2,16 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
 
 namespace X13.plugin {
   internal class PiLink {
-    public PiVar input;
-    public PiVar output;
-    public int layer;
+    internal PiVar input;
+    internal PiVar output;
+    internal int layer;
 
-    public PiLink(PiVar ip, PiVar op) {
+    internal PiLink(PiVar ip, PiVar op) {
       input=ip;
       output=op;
     }
@@ -23,21 +21,21 @@ namespace X13.plugin {
     internal Topic _owner;
     internal List<PiLink> _links;
     internal PiBlock[] calcPath;
-    public PiBlock block;
+    internal PiBlock block;
 
     /// <summary>false - input, true - output, null - io</summary>
-    public bool? dir { get { return pi==null?null:(bool?)pi.dir; } }
-    public int layer;
-    public   PinInfo pi;
-    public bool gray;
+    internal bool? dir { get { return pi==null?null:(bool?)pi.dir; } }
+    internal int layer;
+    internal   PinInfo pi;
+    internal bool gray;
 
-    public PiVar(Topic src) {
+    internal PiVar(Topic src) {
       this._owner = src;
       _links=new List<PiLink>();
       layer=0;
     }
 
-    public void Set(double r) {
+    internal void Set(double r) {
       PLC.instance.DoPlcCmd(_owner, Topic.VT.Float, null, new Topic.PriDT() { d=r });
     }
   }
@@ -118,7 +116,7 @@ namespace X13.plugin {
 
   [JsonObject(MemberSerialization.OptIn)]
   public class PDeclarer : ITenant {
-    internal static PDeclarer Get(string d) {
+    public static PDeclarer Get(string d) {
       Topic t;
       if(Topic.root.Get("/etc/declarers", true).Exist(d, out t) && t.vType==typeof(PDeclarer)) {
         return t.As<PDeclarer>();
