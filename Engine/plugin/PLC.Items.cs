@@ -34,7 +34,9 @@ namespace X13.plugin {
       _links=new List<PiLink>();
       layer=0;
     }
-
+    public T As<T>() {
+      return _owner.As<T>();
+    }
     internal void Set(double r) {
       PLC.instance.DoPlcCmd(_owner, Topic.VT.Float, null, new Topic.PriDT() { d=r });
     }
@@ -102,7 +104,7 @@ namespace X13.plugin {
     private void Calculate() {
       // ADD
       if(_pins.ContainsKey("A") && _pins.ContainsKey("B") && _pins.ContainsKey("Q")) {
-        double r=_pins["A"]._owner.AsDouble+_pins["B"]._owner.AsDouble;
+        double r=_pins["A"]._owner.As<double>()+_pins["B"]._owner.As<double>();
         _pins["Q"].Set(r);
       }
     }

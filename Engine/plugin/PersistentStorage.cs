@@ -284,7 +284,7 @@ namespace X13.plugin {
                   recModified=true;
                 }
                 signal=true;
-                if(_verbose.AsBool) {
+                if(_verbose.As<bool>()) {
                   Log.Debug("D [{0:X4}]({1}) {2}{3}", r.data_pos<<4, r.data_size+6, r.t.path, r.t.saved?r.t.ToJson():" $");
                 }
               }
@@ -313,7 +313,7 @@ namespace X13.plugin {
               }
             }
             signal=true;
-            if(_verbose.AsBool) {
+            if(_verbose.As<bool>()) {
               Log.Debug("S [{0:X4}]({1}) {2}{3}", r.pos<<4, r.size, r.t.path, r.saved_fl==FL_SAVED_I?((r.t.saved)?r.t.ToJson():" $"):" $");
             }
           }
@@ -344,7 +344,7 @@ namespace X13.plugin {
               if(_fileLength<_file.Length) {
                 _file.SetLength(_fileLength);
                 signal=true;
-                if(_verbose.AsBool) {
+                if(_verbose.As<bool>()) {
                   Log.Debug("# {0:X4}", _fileLength);
                 }
               }
@@ -418,7 +418,7 @@ namespace X13.plugin {
         r.t=t;
         t.saved=r.saved_fl!=0;
         t.local=r.local;
-        if(_verbose.AsBool) {
+        if(_verbose.As<bool>()) {
           Log.Debug("L [{0:X4}]{1}={2}", r.pos<<4, t.path, r.payload);
         }
         _tr[t]=r;
@@ -474,7 +474,7 @@ namespace X13.plugin {
 
       }
       _freeBlocks.Add((ulong)sz<<32 | pos);
-      if(_verbose.AsBool) {
+      if(_verbose.As<bool>()) {
         Log.Debug("F [{0:X4}]({1}/{2})", pos<<4, size&FL_LEN_MASK, sz);
       }
     }

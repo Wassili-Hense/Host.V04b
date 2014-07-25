@@ -88,7 +88,7 @@ namespace X13.Engine_UT {
       long val=r.Next();
       A1.Set(val);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A1.AsLong);
+      Assert.AreEqual(val, A1.As<long>());
     }
     [TestMethod]
     public void T03() {
@@ -98,101 +98,101 @@ namespace X13.Engine_UT {
       Topic A2=root.Get("/A2");
       A2.Set(A1);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A2.AsLong);
+      Assert.AreEqual(val, A2.As<long>());
 
       val=r.Next();
       A1.Set(val);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A2.AsLong);
+      Assert.AreEqual(val, A2.As<long>());
 
       var now=DateTime.Now;
       A2.Set(now);
       PLC.instance.Tick();
-      Assert.AreEqual(now, A1.AsDateTime);
+      Assert.AreEqual(now, A1.As<DateTime>());
 
-      A2.Set(null);   // reset reference
+      A2.Set<Topic>(null);   // reset reference
       PLC.instance.Tick();
-      Assert.AreEqual(null, A2.AsObject);
+      Assert.AreEqual(null, A2.As<object>());
 
       A2.Set(true);
       PLC.instance.Tick();
-      Assert.AreEqual(now, A1.AsDateTime);
-      Assert.AreEqual(true, A2.AsObject);
+      Assert.AreEqual(now, A1.As<DateTime>());
+      Assert.AreEqual(true, A2.As<object>());
     }
     [TestMethod]
     public void T04() {   // parse to bool
       Topic A1=root.Get("A1");
       A1.Set(true);
       PLC.instance.Tick();
-      Assert.AreEqual(true, A1.AsBool);
+      Assert.AreEqual(true, A1.As<bool>());
       A1.Set(false);
       PLC.instance.Tick();
-      Assert.AreEqual(false, A1.AsBool);
+      Assert.AreEqual(false, A1.As<bool>());
       A1.Set((object)true);
       PLC.instance.Tick();
-      Assert.AreEqual(true, A1.AsBool);
+      Assert.AreEqual(true, A1.As<bool>());
       A1.Set(0);
       PLC.instance.Tick();
-      Assert.AreEqual(false, A1.AsBool);
+      Assert.AreEqual(false, A1.As<bool>());
       A1.Set(r.Next(1, int.MaxValue));
       PLC.instance.Tick();
-      Assert.AreEqual(true, A1.AsBool);
+      Assert.AreEqual(true, A1.As<bool>());
       A1.Set("false");
       PLC.instance.Tick();
-      Assert.AreEqual(false, A1.AsBool);
+      Assert.AreEqual(false, A1.As<bool>());
       A1.Set("True");
       PLC.instance.Tick();
-      Assert.AreEqual(true, A1.AsBool);
+      Assert.AreEqual(true, A1.As<bool>());
     }
     [TestMethod]
     public void T05() {   // parse to long
       Topic A1=root.Get("A1");
       A1.Set((object)257);
       PLC.instance.Tick();
-      Assert.AreEqual(257, A1.AsLong);
+      Assert.AreEqual(257, A1.As<long>());
       A1.Set(25.7);
       PLC.instance.Tick();
-      Assert.AreEqual(25, A1.AsLong);
+      Assert.AreEqual(25, A1.As<long>());
       A1.Set("94");
       PLC.instance.Tick();
-      Assert.AreEqual(94, A1.AsLong);
+      Assert.AreEqual(94, A1.As<long>());
       A1.Set("0x15");
       PLC.instance.Tick();
-      Assert.AreEqual(0, A1.AsLong);
+      Assert.AreEqual(0, A1.As<long>());
       A1.Set("17.6");
       PLC.instance.Tick();
-      Assert.AreEqual(17, A1.AsLong);
+      Assert.AreEqual(17, A1.As<long>());
       A1.Set(true);
       PLC.instance.Tick();
-      Assert.AreEqual(1, A1.AsLong);
+      Assert.AreEqual(1, A1.As<long>());
       A1.Set(new DateTime(917L));
       PLC.instance.Tick();
-      Assert.AreEqual(917, A1.AsLong);
+      Assert.AreEqual(917, A1.As<long>());
     }
     [TestMethod]
     public void T06() {   // parse to double
       Topic A1=root.Get("A1");
       A1.Set((object)257.158);
       PLC.instance.Tick();
-      Assert.AreEqual(257.158, A1.AsDouble);
+      Assert.AreEqual(257.158, A1.As<double>());
       A1.Set(52);
       PLC.instance.Tick();
-      Assert.AreEqual(52.0, A1.AsDouble);
+      Assert.AreEqual(52.0, A1.As<double>());
       A1.Set("913");
       PLC.instance.Tick();
-      Assert.AreEqual(913.0, A1.AsDouble);
+      Assert.AreEqual(913.0, A1.As<double>());
       A1.Set("0x15");
       PLC.instance.Tick();
-      Assert.AreEqual(0.0, A1.AsDouble);
+      Assert.AreEqual(0.0, A1.As<double>());
       A1.Set("294.3187");
       PLC.instance.Tick();
-      Assert.AreEqual(294.3187, A1.AsDouble);
+      Assert.AreEqual(294.3187, A1.As<double>());
       A1.Set(true);
       PLC.instance.Tick();
-      Assert.AreEqual(1.0, A1.AsDouble);
+      Assert.AreEqual(1.0, A1.As<double>());
       A1.Set(DateTime.FromOADate(1638.324));
       PLC.instance.Tick();
-      Assert.AreEqual(1638.324, A1.AsDouble);
+      Assert.AreEqual(1638.324, A1.As<double>());
     }
     [TestMethod]
     public void T07() {
@@ -200,12 +200,12 @@ namespace X13.Engine_UT {
       long val=r.Next();
       A3.Set(val);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A3.AsLong);
+      Assert.AreEqual(val, A3.As<long>());
       A3.Remove();
       A3.Set(Math.PI);
       PLC.instance.Tick();
       Assert.AreEqual(true, A3.disposed);
-      Assert.AreEqual(null, A3.AsObject);
+      Assert.AreEqual(null, A3.As<object>());
     }
     [TestMethod]
     public void T08() {
@@ -261,7 +261,7 @@ namespace X13.Engine_UT {
       A2.changed+=cmds1Fire;
       A2.Set(A1);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A2.AsLong);
+      Assert.AreEqual(val, A2.As<long>());
       Assert.AreEqual(2, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
       Assert.AreEqual(Perform.Art.create, cmds1[0].art);
@@ -272,7 +272,7 @@ namespace X13.Engine_UT {
       val=r.Next();
       A1.Set(val);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A2.AsLong);
+      Assert.AreEqual(val, A2.As<long>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A1, cmds1[0].src);
       cmds1.Clear();
@@ -280,21 +280,21 @@ namespace X13.Engine_UT {
       var now=DateTime.Now;
       A2.Set(now);
       PLC.instance.Tick();
-      Assert.AreEqual(now, A1.AsDateTime);
+      Assert.AreEqual(now, A1.As<DateTime>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A1, cmds1[0].src);
       cmds1.Clear();
 
-      A2.Set(null);   // reset reference
+      A2.Set<Topic>(null);   // reset reference
       PLC.instance.Tick();
-      Assert.AreEqual(null, A2.AsObject);
+      Assert.AreEqual(null, A2.As<object>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
       cmds1.Clear();
 
       A2.Set(true);
       PLC.instance.Tick();
-      Assert.AreEqual(now, A1.AsDateTime);
+      Assert.AreEqual(now, A1.As<DateTime>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(A2, cmds1[0].src);
       cmds1.Clear();
@@ -302,7 +302,7 @@ namespace X13.Engine_UT {
       val=r.Next();
       A1.Set(val);
       PLC.instance.Tick();
-      Assert.AreEqual(val, A1.AsLong);
+      Assert.AreEqual(val, A1.As<long>());
       Assert.AreEqual(0, cmds1.Count);
       cmds1.Clear();
     }
@@ -415,7 +415,7 @@ namespace X13.Engine_UT {
       Assert.AreEqual(false, root.Exist("B3"));
       Assert.AreNotEqual(b3, c3);
       Assert.AreEqual("C3", c3.name);
-      Assert.AreEqual(91.02, c3.AsDouble);
+      Assert.AreEqual(91.02, c3.As<double>());
       Assert.AreEqual(2, cmds1.Count);
       Assert.AreEqual(b3, cmds1[0].src);
       Assert.AreEqual(Perform.Art.move, cmds1[0].art);
@@ -434,10 +434,10 @@ namespace X13.Engine_UT {
       Assert.AreEqual(false, root.Exist("C3"));
       Assert.AreNotEqual(c3, d3);
       Assert.AreEqual("D3", d3.name);
-      Assert.AreEqual(91.02, d3.AsDouble);
+      Assert.AreEqual(91.02, d3.As<double>());
       Assert.AreEqual(d3, c3_a.parent);
       Assert.AreEqual("/D3/A", c3_a.path);
-      Assert.AreEqual(9577, c3_a.AsLong);
+      Assert.AreEqual(9577, c3_a.As<long>());
       Assert.AreEqual(3, cmds1.Count);
       Assert.AreEqual(c3, cmds1[0].src);
       Assert.AreEqual(Perform.Art.move, cmds1[0].art);
@@ -450,7 +450,7 @@ namespace X13.Engine_UT {
       d3.Set(17);
       var e3=d3.Move(root, "e3");
       PLC.instance.Tick();
-      Assert.AreEqual(17, e3.AsLong);
+      Assert.AreEqual(17, e3.As<long>());
       cmds1.Clear();
 
     }
@@ -467,10 +467,10 @@ namespace X13.Engine_UT {
       PLC.instance.Tick();
       cmds1.Clear();
 
-      Assert.AreEqual(13, a2.AsLong);
+      Assert.AreEqual(13, a2.As<long>());
       var b1=a1.Move(r, "b1");
       PLC.instance.Tick();
-      Assert.AreEqual(b1, a2.AsRef);
+      Assert.AreEqual(b1, a2.As<Topic>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(a2, cmds1[0].src);
       Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
@@ -478,7 +478,7 @@ namespace X13.Engine_UT {
 
       b1.Set(15);
       PLC.instance.Tick();
-      Assert.AreEqual(15, a2.AsLong);
+      Assert.AreEqual(15, a2.As<long>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(b1, cmds1[0].src);
       Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
@@ -486,8 +486,8 @@ namespace X13.Engine_UT {
 
       b1.Remove();
       PLC.instance.Tick();
-      Assert.AreEqual(null, a2.AsRef);
-      Assert.AreEqual(15, a2.AsLong);
+      Assert.AreEqual(null, a2.As<Topic>());
+      Assert.AreEqual(15, a2.As<long>());
       Assert.AreEqual(1, cmds1.Count);
       Assert.AreEqual(a2, cmds1[0].src);
       Assert.AreEqual(Perform.Art.changed, cmds1[0].art);
@@ -501,23 +501,23 @@ namespace X13.Engine_UT {
       t16.SetJson("true");
       PLC.instance.Tick();
       Assert.AreEqual(typeof(bool), t16.vType);
-      Assert.AreEqual(true, t16.AsBool);
+      Assert.AreEqual(true, t16.As<bool>());
       t16.SetJson("137");
       PLC.instance.Tick();
       Assert.AreEqual(typeof(long), t16.vType);
-      Assert.AreEqual(137, t16.AsLong);
+      Assert.AreEqual(137, t16.As<long>());
       t16.SetJson("35.97");
       PLC.instance.Tick();
       Assert.AreEqual(typeof(double), t16.vType);
-      Assert.AreEqual(35.97, t16.AsDouble);
+      Assert.AreEqual(35.97, t16.As<double>());
       t16.SetJson("\"2014-04-15T01:23:45\"");
       PLC.instance.Tick();
       Assert.AreEqual(typeof(DateTime), t16.vType);
-      Assert.AreEqual(new DateTime(2014, 04, 15, 01, 23, 45), t16.AsDateTime);
+      Assert.AreEqual(new DateTime(2014, 04, 15, 01, 23, 45), t16.As<DateTime>());
       t16.SetJson("\"Hello\"");
       PLC.instance.Tick();
       Assert.AreEqual(typeof(string), t16.vType);
-      Assert.AreEqual("Hello", t16.AsString);
+      Assert.AreEqual("Hello", t16.As<string>());
 
       var a=t16.Get("a");
       a.SetJson("{\"$ref\":\"/t16/b\"}");
@@ -525,7 +525,7 @@ namespace X13.Engine_UT {
       Topic b;
       Assert.AreEqual(true, t16.Exist("b", out b));
       Assert.AreEqual(typeof(Topic), a.vType);
-      Assert.AreEqual(b, a.AsRef);
+      Assert.AreEqual(b, a.As<Topic>());
 
       b.SetJson("{\"$type\":\"X13.Engine_UT.TestObj, Engine_UT\",\"A\":43,\"B\":9.81}");
       PLC.instance.Tick();

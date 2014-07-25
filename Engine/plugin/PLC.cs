@@ -15,11 +15,11 @@ namespace X13.plugin {
     public static readonly PLC instance;
 
     private ConcurrentQueue<Perform> _tcQueue;
-    private List<Perform>  _prOp;
+    private List<Perform> _prOp;
     private int _busyFlag;
     private Topic _sign1;
     private Topic _sign2;
-    private bool  _signFl;
+    private bool _signFl;
     private int _pfPos;
 
     private List<PiBlock> _blocks;
@@ -46,9 +46,9 @@ namespace X13.plugin {
       while(vQu.Count>0) {
         v1=vQu.Dequeue();
         if(v1._owner.vType==typeof(Topic)) {
-          if(!_vars.TryGetValue(v1._owner.AsRef, out v2)) {
-            v2=new PiVar(v1._owner.AsRef);
-            _vars[v1._owner.AsRef]=v2;
+          if(!_vars.TryGetValue(v1._owner.As<Topic>(), out v2)) {
+            v2=new PiVar(v1._owner.As<Topic>());
+            _vars[v1._owner.As<Topic>()]=v2;
             vQu.Enqueue(v2);
           }
           v1.gray=true;
@@ -174,7 +174,7 @@ namespace X13.plugin {
                 } else {
                   c.src.Unsubscribe(sr.mask, func);
                 }
-                EnquePerf(new Perform(tmp, c.art, c.src));
+                EnquePerf(Perform.Create(tmp, c.art, c.src));
               }
             }
           }
@@ -182,7 +182,7 @@ namespace X13.plugin {
 
         case Perform.Art.remove:
           foreach(Topic tmp in c.src.all) {
-            EnquePerf(new Perform(tmp, c.art, c.prim));
+            EnquePerf(Perform.Create(tmp, c.art, c.prim));
           }
           break;
         case Perform.Art.move:
@@ -217,14 +217,18 @@ namespace X13.plugin {
                 }
               }
               t1._path=t1.parent==Topic.root?string.Concat("/", t1.name):string.Concat(t1.parent.path, "/", t1.name);
-              EnquePerf(new Perform(t1, Perform.Art.create, c.prim));
+              EnquePerf(Perform.Create(t1, Perform.Art.create, c.prim));
             }
 
             int idx=EnquePerf(c);
             if(idx>0) {
               Perform c1=_prOp[idx-1];
               if(c1.src==c.src && c1.art==Perform.Art.set) {
-                EnquePerf(new Perform(t, Perform.Art.set, c1.prim) { vt=c1.vt, dt=c1.dt, o=c1.o });
+                var p=Perform.Create(t, Perform.Art.set, c1.prim);
+                p.vt=c1.vt;
+                p.dt=c1.dt;
+                p.o=c1.o;
+                EnquePerf(p);
               }
             }
           }
@@ -402,13 +406,19 @@ namespace X13.plugin {
           break;
         }
       }
-      Perform cmd=new Perform(dst, Perform.Art.changed, PLC.instance.signAlt) { dt=dt, o=o, vt=vt };
+      Perform cmd=Perform.Create(dst, Perform.Art.changed, PLC.instance.signAlt);
+      cmd.dt=dt;
+      cmd.o=o;
+      cmd.vt=vt;
       int idx=_prOp.BinarySearch(cmd);
 
       if(idx<0) {
         idx=~idx;
         if(idx<=_pfPos) {
-          cmd=new Perform(dst, Perform.Art.set, sign) { dt=dt, o=o, vt=vt };
+          cmd=Perform.Create(dst, Perform.Art.set, sign);
+          cmd.dt=dt;
+          cmd.o=o;
+          cmd.vt=vt;
           DoCmd(cmd);
           return;
         }
@@ -419,7 +429,10 @@ namespace X13.plugin {
         cmd.old_o=dst._o;
       } else {
         if(idx>=_pfPos) {
-          cmd=new Perform(dst, Perform.Art.set, sign) { dt=dt, o=o, vt=vt };
+          cmd=Perform.Create(dst, Perform.Art.set, sign);
+          cmd.dt=dt;
+          cmd.o=o;
+          cmd.vt=vt;
           DoCmd(cmd);
           return;
         }

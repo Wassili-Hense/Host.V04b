@@ -11,7 +11,7 @@ using X13.lib;
 using X13.plugin;
 
 namespace X13 {
-  public sealed class Topic : IComparable<Topic> {
+  public sealed class Topic: IComparable<Topic> {
     public static readonly Topic root;
     internal static JsonSerializer _jser;
 
@@ -95,7 +95,7 @@ namespace X13 {
       set {
         if(_flags[0]!=value) {
           _flags[0]=value;
-          var c=new Perform(this, Perform.Art.changed, null);
+          var c=Perform.Create(this, Perform.Art.changed, null);
           X13.plugin.PLC.instance.DoCmd(c);
         }
       }
@@ -110,7 +110,7 @@ namespace X13 {
       set {
         if(_flags[4]!=value) {
           _flags[4]=value;
-          var c=new Perform(this, Perform.Art.changed, null);
+          var c=Perform.Create(this, Perform.Art.changed, null);
           X13.plugin.PLC.instance.DoCmd(c);
         }
       }
@@ -147,7 +147,7 @@ namespace X13 {
           if(create) {
             next=new Topic(home, pt[i]);
             home._children.Add(pt[i], next);
-            var c=new Perform(next, Perform.Art.create, prim);
+            var c=Perform.Create(next, Perform.Art.create, prim);
             X13.plugin.PLC.instance.DoCmd(c);
           } else {
             return null;
@@ -164,7 +164,7 @@ namespace X13 {
       return (topic=Get(path, false))!=null;
     }
     public void Remove(Topic prim=null) {
-      var c=new Perform(this, Perform.Art.remove, prim);
+      var c=Perform.Create(this, Perform.Art.remove, prim);
       X13.plugin.PLC.instance.DoCmd(c);
     }
     public Topic Move(Topic nParent, string nName, Topic prim=null) {
@@ -179,7 +179,7 @@ namespace X13 {
       }
       Topic dst=new Topic(nParent, nName);
       nParent._children.Add(nName, dst);
-      var c=new Perform(this, Perform.Art.move, prim);
+      var c=Perform.Create(this, Perform.Art.move, prim);
       c.o=dst;
       X13.plugin.PLC.instance.DoCmd(c);
       return dst;
@@ -194,270 +194,25 @@ namespace X13 {
       return string.Compare(this._path, other._path);
     }
 
-    public void Set(bool val, Topic prim=null) {
+    public void Set<T>(T val, Topic prim=null) {
       Topic r;
-      if(_vt==VT.Ref && (r=_o as Topic)!=null) {
+      if(_vt==VT.Ref && (r=_o as Topic)!=null && typeof(T)!=typeof(Topic) ) {
         r.Set(val, prim);
       } else {
-        var c=new Perform(this, val, prim);
+        var c=Perform.Create(this, val, prim);
         X13.plugin.PLC.instance.DoCmd(c);
       }
     }
-    public void Set(long val, Topic prim=null) {
-      Topic r;
-      if(_vt==VT.Ref && (r=_o as Topic)!=null) {
-        r.Set(val, prim);
-      } else {
-        var c=new Perform(this, val, prim);
-        X13.plugin.PLC.instance.DoCmd(c);
-      }
+    public T As<T>() {
+      return Perform.GetVal<T>(_vt, ref _o, _dt);
     }
-    public void Set(double val, Topic prim=null) {
-      Topic r;
-      if(_vt==VT.Ref && (r=_o as Topic)!=null) {
-        r.Set(val, prim);
-      } else {
-        var c=new Perform(this, val, prim);
-        X13.plugin.PLC.instance.DoCmd(c);
-      }
-    }
-    public void Set(DateTime val, Topic prim=null) {
-      Topic r;
-      if(_vt==VT.Ref && (r=_o as Topic)!=null) {
-        r.Set(val, prim);
-      } else {
-        var c=new Perform(this, val, prim);
-        X13.plugin.PLC.instance.DoCmd(c);
-      }
-    }
-    public void Set(object val, Topic prim=null) {
-      Topic r;
-      if(val!=null && _vt==VT.Ref && (r=_o as Topic)!=null) {
-        r.Set(val, prim);
-      } else {
-        Perform c;
-        switch(Type.GetTypeCode(val==null?null:val.GetType())) {
-        case TypeCode.Boolean:
-          c=new Perform(this, (bool)val, prim);
-          break;
-        case TypeCode.Byte:
-        case TypeCode.SByte:
-        case TypeCode.Int16:
-        case TypeCode.Int32:
-        case TypeCode.Int64:
-        case TypeCode.UInt16:
-        case TypeCode.UInt32:
-        case TypeCode.UInt64:
-          c=new Perform(this, Convert.ToInt64(val), prim);
-          break;
-        case TypeCode.Single:
-        case TypeCode.Double:
-        case TypeCode.Decimal:
-          c=new Perform(this, Convert.ToDouble(val), prim);
-          break;
-        case TypeCode.DateTime:
-          c=new Perform(this, (DateTime)val, prim);
-          break;
-        case TypeCode.Empty:
-        default:
-          c=new Perform(this, val, prim);
-          break;
-        }
-        X13.plugin.PLC.instance.DoCmd(c);
-      }
-    }
+
     public void SetJson(string json, Topic prim=null) {
-      var c=new Perform(this, Perform.Art.set, prim);
+      var c=Perform.Create(this, Perform.Art.set, prim);
       c.o=json;
       c.vt=VT.Json;
       X13.plugin.PLC.instance.DoCmd(c);
     }
-    public bool AsBool {
-      get {
-        bool ret;
-        switch(_vt) {
-        case VT.Bool:
-        case VT.Integer:
-        case VT.DateTime:
-          ret=_dt.l!=0;
-          break;
-        case VT.Float:
-          ret=_dt.d!=0;
-          break;
-        case VT.String:
-          if(!bool.TryParse((string)_o, out ret)) {
-            ret=false;
-          }
-          break;
-        case VT.Ref: {
-            Topic r=_o as Topic;
-            ret=(r!=null) && r.AsBool;
-          }
-          break;
-        default:
-          ret=false;
-          break;
-        }
-        return ret;
-      }
-    }
-    public long AsLong {
-      get {
-        long ret;
-        switch(_vt) {
-        case VT.Bool:
-        case VT.Integer:
-        case VT.DateTime:
-          ret=_dt.l;
-          break;
-        case VT.Float:
-          ret=(long)Math.Truncate(_dt.d);
-          break;
-        case VT.String:
-          if(!long.TryParse((string)_o, out ret)) {
-            double tmp;
-            if(double.TryParse((string)_o, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out tmp)) {
-              ret=(long)Math.Truncate(tmp);
-            } else {
-              ret=0;
-            }
-          }
-          break;
-        case VT.Ref: {
-            Topic r=_o as Topic;
-            ret=r==null?0:r.AsLong;
-          }
-          break;
-        default:
-          ret=0;
-          break;
-        }
-        return ret;
-      }
-    }
-    public double AsDouble {
-      get {
-        double ret;
-        switch(_vt) {
-        case VT.Bool:
-        case VT.Integer:
-          ret=_dt.l;
-          break;
-        case VT.Float:
-          ret=_dt.d;
-          break;
-        case VT.DateTime:
-          ret=_dt.dt.ToOADate();
-          break;
-        case VT.String:
-          if(!double.TryParse((string)_o, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out ret)) {
-            ret=0;
-          }
-          break;
-        case VT.Ref: {
-            Topic r=_o as Topic;
-            ret=r==null?0:r.AsDouble;
-          }
-          break;
-        default:
-          ret=0;
-          break;
-        }
-        return ret;
-      }
-    }
-    public DateTime AsDateTime {
-      get {
-        DateTime ret;
-        switch(_vt) {
-        case VT.DateTime:
-          ret=_dt.dt;
-          break;
-        case VT.Bool:
-        case VT.Integer:
-          ret=new DateTime(_dt.l);
-          break;
-        case VT.Float:
-          ret=DateTime.FromOADate(_dt.d);
-          break;
-        case VT.String:
-          DateTime.TryParse((string)_o, out ret);
-          break;
-        case VT.Ref: {
-            Topic r=_o as Topic;
-            ret=r==null?DateTime.MinValue:r.AsDateTime;
-          }
-          break;
-        default:
-          ret=DateTime.MinValue;
-          break;
-        }
-        return ret;
-      }
-    }
-    public string AsString {
-      get {
-        string ret;
-        switch(_vt) {
-        case VT.Bool:
-          ret=_dt.l==0?bool.FalseString:bool.TrueString;
-          break;
-        case VT.Integer:
-          ret=_dt.l.ToString();
-          break;
-        case VT.DateTime:
-          ret=_dt.dt.ToString();
-          break;
-        case VT.Float:
-          ret=_dt.d.ToString();
-          break;
-        case VT.String:
-          ret=(string)_o;
-          break;
-        case VT.Ref: {
-            Topic r=_o as Topic;
-            ret=r==null?string.Empty:r.AsString;
-          }
-          break;
-        case VT.Object:
-          ret=_o==null?string.Empty:_o.ToString();
-          break;
-        default:
-          ret=string.Empty;
-          break;
-        }
-        return ret;
-      }
-    }
-    public object AsObject {
-      get {
-        if(_o==null) {
-          switch(_vt) {
-          case VT.Bool:
-            _o=_dt.l!=0;
-            break;
-          case VT.Integer:
-            _o=_dt.l;
-            break;
-          case VT.DateTime:
-            _o=_dt.dt;
-            break;
-          case VT.Float:
-            _o=_dt.d;
-            break;
-          case VT.Ref: {
-              Topic r=_o as Topic;
-              return r==null?null:r.AsObject;
-            }
-          }
-        }
-        return _o;
-      }
-    }
-    public T As<T>() where T : class {
-      return _vt==VT.Object?(_o as T):default(T);
-    }
-    public Topic AsRef { get { return _vt==VT.Ref?(_o as Topic):null; } }
     public string ToJson() {
       if(_json==null) {
         lock(this) {
@@ -489,7 +244,7 @@ namespace X13 {
               break;
             default:
               using(var tw=new StringWriter()) {
-                _jser.Serialize(tw, this.AsObject);
+                _jser.Serialize(tw, this.As<object>());
                 _json=tw.ToString();
               }
               break;
@@ -501,13 +256,13 @@ namespace X13 {
     }
     public event Action<Topic, Perform> changed {
       add {
-        var c=new Perform(this, Perform.Art.subscribe, this);
+        var c=Perform.Create(this, Perform.Art.subscribe, this);
         c.o=value;
         _dt.l=0;
         X13.plugin.PLC.instance.DoCmd(c);
       }
       remove {
-        var c=new Perform(this, Perform.Art.unsubscribe, this);
+        var c=Perform.Create(this, Perform.Art.unsubscribe, this);
         c.o=value;
         _dt.l=0;
         X13.plugin.PLC.instance.DoCmd(c);
@@ -545,14 +300,14 @@ namespace X13 {
           if((dst=c.o as Topic)!=null) {
             _o=dst;
             dst.Subscribe(new SubRec() { f=this.RefChanged, mask=dst.path, ma=Bill.curArr });
-            var cmd=new Perform(this, dst, c.prim);
+            var cmd=Perform.Create(this, dst, c.prim);
             cmd.art=Perform.Art.changed;
             this.Publish(cmd);
           }
         } else if(c.art==Perform.Art.changed) {
           this.Publish(c);
         } else if(c.art==Perform.Art.remove) {
-          var cmd=new Perform(this, Perform.Art.changed, c.prim);
+          var cmd=Perform.Create(this, Perform.Art.changed, c.prim);
           cmd.old_vt=_vt;
           _vt=c.old_vt;
           cmd.vt=_vt;
@@ -581,7 +336,7 @@ namespace X13 {
     }
 
     #region nested types
-    public class Bill : IEnumerable<Topic> {
+    public class Bill: IEnumerable<Topic> {
       public const char delmiter='/';
       public const string delmiterStr="/";
       public const string maskAll="#";
@@ -625,13 +380,13 @@ namespace X13 {
       }
       public event Action<Topic, Perform> changed {
         add {
-          Perform c=new Perform(_home, Perform.Art.subscribe, _home);
+          Perform c=Perform.Create(_home, Perform.Art.subscribe, _home);
           c.o=value;
           c.dt.l=_deep?2:1;
           X13.plugin.PLC.instance.DoCmd(c);
         }
         remove {
-          Perform c=new Perform(_home, Perform.Art.unsubscribe, _home);
+          Perform c=Perform.Create(_home, Perform.Art.unsubscribe, _home);
           c.o=value;
           c.dt.l=_deep?2:1;
           X13.plugin.PLC.instance.DoCmd(c);
@@ -642,7 +397,7 @@ namespace X13 {
       }
     }
 
-    private class RefResolver : Newtonsoft.Json.Serialization.IReferenceResolver {
+    private class RefResolver: Newtonsoft.Json.Serialization.IReferenceResolver {
       public void AddReference(object context, string reference, object value) {
       }
 
@@ -689,8 +444,8 @@ namespace X13 {
 
     internal struct SubRec {
       public string mask;
-      public string [] ma;
-      public  Action<Topic, Perform> f;
+      public string[] ma;
+      public Action<Topic, Perform> f;
     }
     #endregion nested types
   }
