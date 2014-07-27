@@ -26,7 +26,7 @@ namespace X13.plugin {
     /// <summary>false - input, true - output, null - io</summary>
     internal bool? dir { get { return pi==null?null:(bool?)pi.dir; } }
     internal int layer;
-    internal   PinInfo pi;
+    internal PinInfo pi;
     internal bool gray;
 
     internal PiVar(Topic src) {
@@ -37,8 +37,14 @@ namespace X13.plugin {
     public T As<T>() {
       return _owner.As<T>();
     }
-    internal void Set(double r) {
-      PLC.instance.DoPlcCmd(_owner, Topic.VT.Float, null, new Topic.PriDT() { d=r });
+    internal void Set<T>(T val) {
+      if(_owner._vt==Topic.VT.Ref && typeof(T)!=typeof(Topic)) {
+        PLC.instance.GetVar((_owner._o as Topic), true).Set<T>(val);      // ??????
+      } else {
+        var cmd=Perform.Create<T>(_owner, val, PLC.instance.signAlt);
+        cmd.art = Perform.Art.changed;
+        PLC.instance.DoPlcCmd(cmd);
+      }
     }
   }
 

@@ -195,9 +195,8 @@ namespace X13 {
     }
 
     public void Set<T>(T val, Topic prim=null) {
-      Topic r;
-      if(_vt==VT.Ref && (r=_o as Topic)!=null && typeof(T)!=typeof(Topic) ) {
-        r.Set(val, prim);
+      if(_vt==VT.Ref && typeof(T)!=typeof(Topic) ) {
+        (_o as Topic).Set(val, prim);
       } else {
         var c=Perform.Create(this, val, prim);
         X13.plugin.PLC.instance.DoCmd(c);

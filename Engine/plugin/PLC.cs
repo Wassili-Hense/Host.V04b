@@ -243,12 +243,7 @@ namespace X13.plugin {
       for(_pfPos=0; _pfPos<_prOp.Count; _pfPos++) {
         var cmd=_prOp[_pfPos];
         if(cmd.art==Perform.Art.set || cmd.art==Perform.Art.remove) {
-          if(cmd.art!=Perform.Art.set 
-        || cmd.src._vt!=cmd.vt 
-        || ((cmd.src._vt==Topic.VT.Object || cmd.src._vt==Topic.VT.Ref || cmd.src._vt==Topic.VT.String) && !object.Equals(cmd.src._o, cmd.o))
-        || ((cmd.src._vt==Topic.VT.Bool || cmd.src._vt==Topic.VT.Integer) && cmd.src._dt.l!=cmd.dt.l)
-        || (cmd.src._vt==Topic.VT.Float && cmd.src._dt.d!=cmd.dt.d)
-        || (cmd.src._vt==Topic.VT.DateTime && cmd.src._dt.dt!=cmd.dt.dt)) {
+          if(cmd.art!=Perform.Art.set || cmd.src._vt!=cmd.vt || !object.Equals(cmd.src._o, cmd.o) ||  cmd.src._dt.l!=cmd.dt.l) {
             cmd.old_vt=cmd.src._vt;
             cmd.old_dt=cmd.src._dt;
             cmd.old_o=cmd.src._o;
@@ -396,44 +391,30 @@ namespace X13.plugin {
       }
       return idx;
     }
-    internal void DoPlcCmd(Topic dst, Topic.VT vt, object o, Topic.PriDT dt) {
-      if(dst._vt==vt) {
-        switch(vt) {
-        case Topic.VT.Float:
-          if(dst._dt.d==dt.d) {
-            return;
-          }
-          break;
-        }
+    internal void DoPlcCmd(Perform cmd) {
+      if(cmd.vt==cmd.src._vt && object.Equals(cmd.src._o, cmd.o) &&  cmd.src._dt.l!=cmd.dt.l) {
+        return;
       }
-      Perform cmd=Perform.Create(dst, Perform.Art.changed, PLC.instance.signAlt);
-      cmd.dt=dt;
-      cmd.o=o;
-      cmd.vt=vt;
-      int idx=_prOp.BinarySearch(cmd);
 
+      int idx=_prOp.BinarySearch(cmd);
       if(idx<0) {
         idx=~idx;
         if(idx<=_pfPos) {
-          cmd=Perform.Create(dst, Perform.Art.set, sign);
-          cmd.dt=dt;
-          cmd.o=o;
-          cmd.vt=vt;
-          DoCmd(cmd);
+          cmd.art=Perform.Art.set;
+          cmd.prim=sign;
+          DoCmd(cmd);               // Published in next tick
           return;
         }
         _prOp.Insert(idx, cmd);
-        dst._json=null;
-        cmd.old_vt=dst._vt;
-        cmd.old_dt=dst._dt;
-        cmd.old_o=dst._o;
+        cmd.src._json=null;
+        cmd.old_vt=cmd.src._vt;
+        cmd.old_dt=cmd.src._dt;
+        cmd.old_o=cmd.src._o;
       } else {
         if(idx>=_pfPos) {
-          cmd=Perform.Create(dst, Perform.Art.set, sign);
-          cmd.dt=dt;
-          cmd.o=o;
-          cmd.vt=vt;
-          DoCmd(cmd);
+          cmd.art=Perform.Art.set;
+          cmd.prim=sign;
+          DoCmd(cmd);               // Published in next tick
           return;
         }
         var oCmd=_prOp[idx];
@@ -442,16 +423,16 @@ namespace X13.plugin {
           cmd.old_dt=oCmd.old_dt;
           cmd.old_o=oCmd.old_o;
         } else {
-          dst._json=null;
-          cmd.old_vt=dst._vt;
-          cmd.old_dt=dst._dt;
-          cmd.old_o=dst._o;
+          cmd.src._json=null;
+          cmd.old_vt=cmd.src._vt;
+          cmd.old_dt=cmd.src._dt;
+          cmd.old_o=cmd.src._o;
         }
         _prOp[idx]=cmd;
       }
-      dst._vt=cmd.vt;
-      dst._dt=cmd.dt;
-      dst._o=cmd.o;
+      cmd.src._vt=cmd.vt;
+      cmd.src._dt=cmd.dt;
+      cmd.src._o=cmd.o;
     }
     internal void AddBlock(PiBlock bl) {
       _blocks.Add(bl);

@@ -41,17 +41,11 @@ namespace X13.plugin {
           ret=false;
         }
         break;
-      //case Topic.VT.Ref: {
-      //    Topic r=o as Topic;
-      //    ret=(r!=null) && r.As<bool>();
-      //  }
-      //  break;
       default:
         ret=false;
         break;
       }
       return ret;
-
     }
     private static long GetLong(Topic.VT vt, object o, Topic.PriDT dt) {
       long ret;
@@ -74,17 +68,11 @@ namespace X13.plugin {
           }
         }
         break;
-      //case Topic.VT.Ref: {
-      //    Topic r=o as Topic;
-      //    ret=r==null?0:r.As<long>();
-      //  }
-      //  break;
       default:
         ret=0;
         break;
       }
       return ret;
-
     }
     private static double GetDouble(Topic.VT vt, object o, Topic.PriDT dt) {
       double ret;
@@ -104,17 +92,11 @@ namespace X13.plugin {
           ret=0;
         }
         break;
-      //case Topic.VT.Ref: {
-      //    Topic r=o as Topic;
-      //    ret=r==null?0:r.As<double>();
-      //  }
-      //  break;
       default:
         ret=0;
         break;
       }
       return ret;
-
     }
     private static DateTime GetDateTime(Topic.VT vt, object o, Topic.PriDT dt) {
       DateTime ret;
@@ -132,11 +114,6 @@ namespace X13.plugin {
       case Topic.VT.String:
         DateTime.TryParse((string)o, out ret);
         break;
-      //case Topic.VT.Ref: {
-      //    Topic r=o as Topic;
-      //    ret=r==null?DateTime.MinValue:r.As<DateTime>();
-      //  }
-      //  break;
       default:
         ret=DateTime.MinValue;
         break;
@@ -161,11 +138,6 @@ namespace X13.plugin {
       case Topic.VT.String:
         ret=(string)o;
         break;
-      //case Topic.VT.Ref: {
-      //    Topic r=o as Topic;
-      //    ret=r==null?string.Empty:r.As<string>();
-      //  }
-      //  break;
       case Topic.VT.Object:
         ret=o==null?string.Empty:o.ToString();
         break;
@@ -214,75 +186,57 @@ namespace X13.plugin {
       return default(T);
     }
 
-    //private static void SetP(object val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) { }
-    private static void SetP(bool val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      vt=Topic.VT.Bool;
-      dt.l=val?1:0;
-      o=null;
-    }
-    private static void SetP(long val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      vt=Topic.VT.Integer;
-      dt.l=val;
-      o=null;
-    }
-    private static void SetP(double val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      vt=Topic.VT.Float;
-      dt.d=val;
-      o=null;
-    }
-    private static void SetP(DateTime val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      vt=Topic.VT.DateTime;
-      dt.dt=val;
-      o=null;
-    }
-
-    private static void SetP(object val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      switch(Type.GetTypeCode(val==null?null:val.GetType())) {
-      case TypeCode.Boolean:
-        dt.l=(bool)val?1:0;
-        vt=Topic.VT.Bool;
-        break;
-      case TypeCode.Byte:
-      case TypeCode.SByte:
-      case TypeCode.Int16:
-      case TypeCode.Int32:
-      case TypeCode.Int64:
-      case TypeCode.UInt16:
-      case TypeCode.UInt32:
-      case TypeCode.UInt64:
-        dt.l=Convert.ToInt64(val);
-        vt=Topic.VT.Integer;
-        break;
-      case TypeCode.Single:
-      case TypeCode.Double:
-      case TypeCode.Decimal:
-        dt.d=Convert.ToDouble(val);
-        vt=Topic.VT.Float;
-        break;
-      case TypeCode.DateTime:
-        dt.dt=(DateTime)val;
-        vt=Topic.VT.DateTime;
-        break;
-      case TypeCode.Empty:
-        dt.l=0;
-        vt=Topic.VT.Null;
-        break;
-      case TypeCode.Object:
-      default:
-        if(val is Topic) {
-          vt=Topic.VT.Ref;
-        } else if(val is string) {
-          vt=Topic.VT.String;
-        } else {
-          vt=Topic.VT.Object;
-        }
-        break;
-      }
-      o=val;
-    }
-
     internal static void Set<T>(T val, ref Topic.VT vt, ref object o, ref Topic.PriDT dt) {
-      SetP(val, ref vt, ref o, ref dt);
+      try {
+        if(vt==Topic.VT.Ref && typeof(T)!=typeof(Topic)) {
+          (o as Topic).Set<T>(val); // ????
+          return;
+        }
+        o=val;
+        switch(Type.GetTypeCode(o==null?null:o.GetType())) {
+        case TypeCode.Boolean:
+          dt.l=(bool)o?1:0;
+          vt=Topic.VT.Bool;
+          break;
+        case TypeCode.Byte:
+        case TypeCode.SByte:
+        case TypeCode.Int16:
+        case TypeCode.Int32:
+        case TypeCode.Int64:
+        case TypeCode.UInt16:
+        case TypeCode.UInt32:
+        case TypeCode.UInt64:
+          dt.l=Convert.ToInt64(o);
+          vt=Topic.VT.Integer;
+          break;
+        case TypeCode.Single:
+        case TypeCode.Double:
+        case TypeCode.Decimal:
+          dt.d=Convert.ToDouble(o);
+          vt=Topic.VT.Float;
+          break;
+        case TypeCode.DateTime:
+          dt.dt=(DateTime)o;
+          vt=Topic.VT.DateTime;
+          break;
+        case TypeCode.Empty:
+          dt.l=0;
+          vt=Topic.VT.Null;
+          break;
+        case TypeCode.Object:
+        default:
+          if(val is Topic) {
+            vt=Topic.VT.Ref;
+          } else if(val is string) {
+            vt=Topic.VT.String;
+          } else {
+            vt=Topic.VT.Object;
+          }
+          break;
+        }
+      }
+      catch(Exception) {
+      }
     }
 
     internal static Perform Create<T>(Topic src, T val, Topic prim) {
@@ -306,7 +260,7 @@ namespace X13.plugin {
     internal object old_o;
 
     public readonly Topic src;
-    public readonly Topic prim;
+    public Topic prim { get; internal set; }
     public readonly int layer;
     public Art art { get; internal set; }
 
@@ -348,6 +302,5 @@ namespace X13.plugin {
       move=6,
       remove=7
     }
-
   }
 }

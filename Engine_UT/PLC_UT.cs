@@ -138,7 +138,7 @@ namespace X13.Engine_UT {
     }
     [TestMethod]
     public void T99() {
-      var c1=new PiConst(15);
+      var c1=PiConst.Create(15L);
       Assert.AreEqual(15, c1.As<long>());
       Assert.AreEqual<object>(15L, c1.As<object>());
       //GC.Collect();
