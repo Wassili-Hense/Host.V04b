@@ -116,47 +116,31 @@ namespace X13.Engine_UT {
       A01.Get("B").Set(2);
       var A01_Q=A01.Get("Q");
 
-      var A02=Topic.root.Get("/plc/T01/A02");
-      A02.Set(new PiBlock("func/ADD"));
-      A02.Get("A").Set(A01_Q);
-      A02.Get("B").Set(5);
-      var A02_Q=A02.Get("Q");
+      //var A02=Topic.root.Get("/plc/T01/A02");
+      //A02.Set(new PiBlock("func/ADD"));
+      //A02.Get("A").Set(A01_Q);
+      //A02.Get("B").Set(5);
+      //var A02_Q=A02.Get("Q");
 
       plc.Tick();
       plc.Tick();
 
       plc.Start();
-      Assert.AreEqual(2, A01.As<PiBlock>().layer);
-      Assert.AreEqual(3, A02.As<PiBlock>().layer);
-      Assert.AreEqual(26, A02_Q.As<double>());
+      //Assert.AreEqual(2, A01.As<PiBlock>().layer);
+      Assert.AreEqual(21, A01_Q.As<double>());
+      //Assert.AreEqual(3, A02.As<PiBlock>().layer);
+      //Assert.AreEqual(26, A02_Q.As<double>());
 
       A01_A.Set(9);
       plc.Tick();
-      Assert.AreEqual(16, A02_Q.As<double>());
+      Assert.AreEqual(11, A01_Q.As<double>());
+      //Assert.AreEqual(16, A02_Q.As<double>());
 
       plc.Stop();
     }
     [TestMethod]
     public void T99() {
-      var c1=PiConst.Create(15L);
-      Assert.AreEqual(15, c1.As<long>());
-      Assert.AreEqual<object>(15L, c1.As<object>());
-      //GC.Collect();
-      //GC.Collect();
-      //long mem1=GC.GetTotalMemory(true);
-      //long value = 0;
-      //value = c1.As<long>();
-      //var watch = Stopwatch.StartNew();
 
-      //for(long i = 0; i < 10000000; i++) {
-      //  c1.Set(i);
-      //  value+= c1.As<long>();
-      //}
-
-      //watch.Stop();
-      //long mem2=GC.GetTotalMemory(false);
-
-      //System.IO.File.AppendAllText("PLC_UT_T05.log", watch.Elapsed.TotalMilliseconds.ToString()+"\t"+(mem2-mem1).ToString()+"/"+mem2.ToString()+"\r\n");
     }
 
   }

@@ -26,6 +26,7 @@ namespace X13.plugin {
     private Dictionary<Topic, PiVar> _vars;
     public Topic sign { get { return _signFl?_sign1:_sign2; } }
     internal Topic signAlt { get { return _signFl?_sign2:_sign1; } }
+    internal VM vm;
 
     public PLC() {
       _blocks=new List<PiBlock>();
@@ -39,6 +40,7 @@ namespace X13.plugin {
     public void Init() {
       _sign1=Topic.root.Get("/etc/plugins/PLC/sign1");
       _sign2=Topic.root.Get("/etc/plugins/PLC/sign2");
+      vm=new VM();
     }
     public void Start() {
       Queue<PiVar> vQu=new Queue<PiVar>(_vars.Values);
