@@ -11,7 +11,8 @@
     <AssemblyName>engine</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -52,6 +53,7 @@
     <Compile Include="Engine.cs" />
     <Compile Include="lib\crc16.cs" />
     <Compile Include="lib\Log.cs" />
+    <Compile Include="plugin\PLC.Compiler.cs" />
     <Compile Include="plugin\PLC.Items.cs" />
     <Compile Include="plugin\PLC.Perform.cs" />
     <Compile Include="plugin\PersistentStorage.cs" />
@@ -63,6 +65,7 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="bin\Newtonsoft.Json.dll" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

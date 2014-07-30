@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using X13.plugin;
 using System.Diagnostics;
@@ -139,9 +140,71 @@ namespace X13.Engine_UT {
       plc.Stop();
     }
     [TestMethod]
-    public void T99() {
+    public void T20() {
+      Compiler c=new Compiler();
+      Lexem[] l;
+      l=c.ParseLex("0").ToArray();
+      Assert.AreEqual(1, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
+      Assert.AreEqual("0", l[0].content);
+
+      l=c.ParseLex("012 34").ToArray();
+      Assert.AreEqual(2, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
+      Assert.AreEqual("012", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
+      Assert.AreEqual("34", l[1].content);
+
+      l=c.ParseLex("0x15\t257").ToArray();
+      Assert.AreEqual(2, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Hex, l[0].typ);
+      Assert.AreEqual("0x15", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
+      Assert.AreEqual("257", l[1].content);
+
+      l=c.ParseLex("24.19 0.91e1\n.173").ToArray();
+      Assert.AreEqual(3, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Float, l[0].typ);
+      Assert.AreEqual("24.19", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.Float, l[1].typ);
+      Assert.AreEqual("0.91e1", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.Float, l[2].typ);
+      Assert.AreEqual(".173", l[2].content);
+      Assert.AreEqual(2, l[2].line);
+
+      l=c.ParseLex("\"qwerty\"").ToArray();
+      Assert.AreEqual(1, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.String, l[0].typ);
+      Assert.AreEqual("qwerty", l[0].content);
+
+      l=c.ParseLex("'\\'\\\"\\\\' \"1 \\n\\r\\u0041\"").ToArray();
+      Assert.AreEqual(2, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.String, l[0].typ);
+      Assert.AreEqual("\'\"\\", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.String, l[1].typ);
+      Assert.AreEqual("1 \n\r\u0041", l[1].content);
+
+      l=c.ParseLex("12 // integral constant\r").ToArray();
+      Assert.AreEqual(1, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
+      Assert.AreEqual("12", l[0].content);
+
+      l=c.ParseLex("13 /*integral constant */ 14").ToArray();
+      Assert.AreEqual(2, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
+      Assert.AreEqual("13", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
+      Assert.AreEqual("14", l[1].content);
+
+      l=c.ParseLex("15 /*integral \n\r constant */ 16").ToArray();
+      Assert.AreEqual(2, l.Length);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
+      Assert.AreEqual("15", l[0].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
+      Assert.AreEqual("16", l[1].content);
 
     }
+
 
   }
 }
