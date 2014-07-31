@@ -141,6 +141,56 @@ namespace X13.Engine_UT {
     }
     [TestMethod]
     public void T20() {
+      /*
+      a = 1;
+      b = { 'a' : a };
+      c = 'a';
+      d = this;
+      var patt1=/w3ghouls/i;
+      throw "Err3";
+      function e(a,b,c){
+          d += a + b + c++;
+          return d;
+      }
+      this.xy.z = function(a, b){
+          var x = null;
+      }
+      var f = function(a,b){
+          if(a == b || (b === a && a)){
+              var f = [a,b];
+              try{
+                  f = f.slice(0);
+              }catch(e){
+                  console.log(e * e + '');
+              }
+          }else if(a){
+              a = null;
+              a = undefined;
+              b = typeof a;
+              b = true;
+              b = false;
+          }else{
+              switch(c){
+                 case 'c':
+                   break;
+                 default:
+                   null;
+                   break;
+              }
+          }
+      }
+      for(var i =0; i <= a.length; i++){
+          do{
+             continue;
+             null;
+            }while(a != b);
+      }
+      if(a == b)
+        (a) ? null : null;
+      */
+      /* This is a finished 
+       test case */
+
       Compiler c=new Compiler();
       Lexem[] l;
       l=c.ParseLex("0").ToArray();
@@ -148,19 +198,23 @@ namespace X13.Engine_UT {
       Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
       Assert.AreEqual("0", l[0].content);
 
-      l=c.ParseLex("012 34").ToArray();
-      Assert.AreEqual(2, l.Length);
+      l=c.ParseLex("012/34").ToArray();
+      Assert.AreEqual(3, l.Length);
       Assert.AreEqual(Lexem.LexTyp.Integer, l[0].typ);
       Assert.AreEqual("012", l[0].content);
-      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
-      Assert.AreEqual("34", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.KeyWord, l[1].typ);
+      Assert.AreEqual("/", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[2].typ);
+      Assert.AreEqual("34", l[2].content);
 
-      l=c.ParseLex("0x15\t257").ToArray();
-      Assert.AreEqual(2, l.Length);
+      l=c.ParseLex("0x15\t>= 257").ToArray();
+      Assert.AreEqual(3, l.Length);
       Assert.AreEqual(Lexem.LexTyp.Hex, l[0].typ);
       Assert.AreEqual("0x15", l[0].content);
-      Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
-      Assert.AreEqual("257", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.KeyWord, l[1].typ);
+      Assert.AreEqual(">=", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.Integer, l[2].typ);
+      Assert.AreEqual("257", l[2].content);
 
       l=c.ParseLex("24.19 0.91e1\n.173").ToArray();
       Assert.AreEqual(3, l.Length);
@@ -177,12 +231,14 @@ namespace X13.Engine_UT {
       Assert.AreEqual(Lexem.LexTyp.String, l[0].typ);
       Assert.AreEqual("qwerty", l[0].content);
 
-      l=c.ParseLex("'\\'\\\"\\\\' \"1 \\n\\r\\u0041\"").ToArray();
-      Assert.AreEqual(2, l.Length);
+      l=c.ParseLex("'\\'\\\"\\\\' + \"1 \\n\\r\\u0041\"").ToArray();
+      Assert.AreEqual(3, l.Length);
       Assert.AreEqual(Lexem.LexTyp.String, l[0].typ);
       Assert.AreEqual("\'\"\\", l[0].content);
-      Assert.AreEqual(Lexem.LexTyp.String, l[1].typ);
-      Assert.AreEqual("1 \n\r\u0041", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.KeyWord, l[1].typ);
+      Assert.AreEqual("+", l[1].content);
+      Assert.AreEqual(Lexem.LexTyp.String, l[2].typ);
+      Assert.AreEqual("1 \n\r\u0041", l[2].content);
 
       l=c.ParseLex("12 // integral constant\r").ToArray();
       Assert.AreEqual(1, l.Length);
@@ -203,8 +259,7 @@ namespace X13.Engine_UT {
       Assert.AreEqual(Lexem.LexTyp.Integer, l[1].typ);
       Assert.AreEqual("16", l[1].content);
 
+      l=c.ParseLex("function e(a,b,c){\n  d += a + b + c++;\n\r return d;\r}").ToArray();
     }
-
-
   }
 }

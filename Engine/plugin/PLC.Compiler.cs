@@ -32,29 +32,61 @@ namespace X13.plugin {
           } else if(char.IsDigit(ch)) {
             state=2;
           } else if(ch=='.') {
-            state=4;
+            state=13;
+            subSt=0;
           } else if(ch=='"') {
             state=6;
             subSt=1;
-          } else if(ch=='\''){
+          } else if(ch=='\'') {
             state=6;
             subSt=2;
-          }else if(ch=='/'){
+          } else if(ch=='/') {
             state=12;
+          } else if(ch=='+') {
+            state=14;
+            subSt=1;
+          } else if(ch=='-') {
+            state=14;
+            subSt=2;
+          } else if(ch=='&') {
+            state=14;
+            subSt=3;
+          } else if(ch=='|') {
+            state=14;
+            subSt=4;
+          } else if(ch=='<') {
+            state=14;
+            subSt=5;
+          } else if(ch=='>') {
+            state=14;
+            subSt=6;
+          }else if(ch=='='){
+            state=15;
+            subSt=1;
+          } else if("*%^~!".Contains(ch)) {
+            state=15;
+            subSt=0;
+          } else if("(){}[]?:,;".Contains(ch)) {
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, 1), line=line, row=startRow };
+            state=0;
+          } else if(ch=='_' || char.IsLetter(ch)){
+            state=30;
           } else {
             throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
           }
           break;
+        // {}[]().,+-*/%&|^!<>?:;~= \t\r\n
         case 1:     // integer, 0
-          if(char.IsWhiteSpace(ch)) {
+          if("]),+-*/%&|^!<>?:; \t\n\r".Contains(ch)) {
             yield return new Lexem() { typ=Lexem.LexTyp.Integer, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
-            state=0;
+            goto case 0;
           } else if(ch=='x' || ch=='X') {
             state=3;
           } else if(char.IsDigit(ch)) {
             state=2;
           } else if(ch=='.') {
-            state=4;
+            state=13;
+            subSt=2;
           } else if(ch=='E' || ch=='e') {
             state=5;
           } else {
@@ -62,13 +94,14 @@ namespace X13.plugin {
           }
           break;
         case 2:   //integer
-          if(char.IsWhiteSpace(ch)) {
+          if("]),+-*/%&|^!<>?:; \t\n\r".Contains(ch)) {
             yield return new Lexem() { typ=Lexem.LexTyp.Integer, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
-            state=0;
+            goto case 0;
           } else if(char.IsDigit(ch)) {
             state=2;
           } else if(ch=='.') {
-            state=4;
+            state=13;
+            subSt=2;
           } else if(ch=='E' || ch=='e') {
             state=5;
           } else {
@@ -76,9 +109,9 @@ namespace X13.plugin {
           }
           break;
         case 3:   //hex
-          if(char.IsWhiteSpace(ch)) {
+          if("]).,+-*/%&|^!<>?:; \t\n\r".Contains(ch)) {
             yield return new Lexem() { typ=Lexem.LexTyp.Hex, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
-            state=0;
+            goto case 0;
           } else if(char.IsDigit(ch) || (ch>='A' && ch<='F') || (ch>='a' && ch<='f')) {
             state=3;
           } else {
@@ -86,9 +119,9 @@ namespace X13.plugin {
           }
           break;
         case 4:   //float
-          if(char.IsWhiteSpace(ch)) {
+          if("]).,+-*/%&|^!<>?:; \t\n\r".Contains(ch)) {
             yield return new Lexem() { typ=Lexem.LexTyp.Float, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
-            state=0;
+            goto case 0;
           } else if(char.IsDigit(ch)) {
             state=4;
           } else if(ch=='E' || ch=='e') {
@@ -136,16 +169,23 @@ namespace X13.plugin {
           }
           break;
         case 12:   // comentar
-          if(subSt==0){
+          if(subSt==0) {
             if(ch=='/') {
               subSt=1;
             } else if(ch=='*') {
               subSt=2;
+            } else if("(.!~_ \t\r\n".Contains(ch) || char.IsLetterOrDigit(ch)) {
+                yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
+                goto case 0;
+            } else if(ch=='=') {
+                yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos+1), line=line, row=startRow };
+                state=0;
             } else {
-              throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
+                throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
             }
-          } if(subSt==1){
-            if(ch=='\n' || ch=='\r'){
+          }
+          if(subSt==1) {
+            if(ch=='\n' || ch=='\r') {
               state=0;
             }
           } else if(subSt==2) {
@@ -158,6 +198,54 @@ namespace X13.plugin {
             } else {
               subSt=2;
             }
+          }
+          break;
+        case 13:    // point
+          if(char.IsDigit(ch)) {
+            state=4;
+            break;
+          } else {
+            if(subSt==2) {
+              yield return new Lexem() { typ=Lexem.LexTyp.Integer, content=text.Substring(startPos, pos-startPos-1), line=line, row=startRow };
+            }
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(pos-1, 1), line=line, row=startRow };
+            goto case 0;
+          }
+        case 14:    // operators +,-,&,|,<,>
+          if("(.!~_ \t\r\n".Contains(ch) || char.IsLetterOrDigit(ch)) {
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
+            goto case 0;
+          } else if(ch=='=' || (subSt==1 && ch=='+') || (subSt==2 && ch=='-')) {
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos+1), line=line, row=startRow };
+            state=0;
+          } else if((subSt==3 && ch=='&') || (subSt==4 && ch=='|') || (subSt==5 && ch=='<') || (subSt==6 && ch=='>')) {
+            subSt+=4;
+          } else {
+            throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
+          }
+          break;
+        case 15:
+          if("(.!~_ \t\r\n".Contains(ch) || char.IsLetterOrDigit(ch)) {
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
+            goto case 0;
+          } else if(ch=='=' && subSt<4) {
+            if(subSt>=0) {
+              subSt++;
+            }
+            yield return new Lexem() { typ=Lexem.LexTyp.KeyWord, content=text.Substring(startPos, pos-startPos+1), line=line, row=startRow };
+            state=0;
+          } else {
+            throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
+          }
+          break;
+        case 30:
+          if(ch=='_' || char.IsLetterOrDigit(ch)) {
+            state=30;
+          } else if("{}[]().,+-*/%&|^!<>?:;~= \t\r\n".Contains(ch)) {
+            yield return new Lexem() { typ=Lexem.LexTyp.Id, content=text.Substring(startPos, pos-startPos), line=line, row=startRow };
+            goto case 0;
+          } else {
+            throw new ArgumentException(string.Format("syntax error l:{0}, p:{1}, st:{2}", line, row, state));
           }
           break;
         }
@@ -177,6 +265,8 @@ namespace X13.plugin {
       Hex,
       Float,
       String,
+      KeyWord,
+      Id,
     }
     public LexTyp typ;
     public string content;
